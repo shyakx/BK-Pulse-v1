@@ -4,13 +4,6 @@ This directory contains utility scripts for the BK Pulse server.
 
 ## Scripts
 
-### `testPrediction.js`
-Tests the ML prediction functionality without requiring database access.
-
-```bash
-node server/scripts/testPrediction.js
-```
-
 ### `updateChurnScores.js`
 Updates customer churn scores in the database using the ML model.
 

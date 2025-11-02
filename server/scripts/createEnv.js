@@ -63,7 +63,7 @@ CORS_ORIGIN=${corsOrigin}
     fs.writeFileSync(envPath, envContent);
     console.log(`\n✅ Environment file created: ${envPath}`);
     console.log('\nYou can now test the connection:');
-    console.log('  node server/scripts/testDBConnection.js');
+    console.log('  Check database connection using psql or your preferred database client');
     rl.close();
   } catch (error) {
     console.error(`\n❌ Failed to create .env file: ${error.message}`);

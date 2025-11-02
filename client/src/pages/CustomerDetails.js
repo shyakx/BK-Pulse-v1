@@ -65,7 +65,6 @@ const CustomerDetails = () => {
               customerData.updated_at = new Date().toISOString();
             }
           } catch (predictError) {
-            console.warn('Auto-prediction failed, showing existing data:', predictError);
             // Continue with existing data if auto-prediction fails
           } finally {
             setUpdating(false);
@@ -80,7 +79,7 @@ const CustomerDetails = () => {
               customerData.updated_at = new Date().toISOString();
             }
           } catch (predictError) {
-            console.warn('Auto-prediction failed:', predictError);
+            // Auto-prediction failed - using existing data
           }
         }
         
@@ -95,7 +94,6 @@ const CustomerDetails = () => {
               setShapValues(shapResponse.shap_values);
             }
           } catch (shapError) {
-            console.warn('Could not fetch SHAP values:', shapError);
             // If SHAP fails, it's not critical - just don't show SHAP section
           }
 
@@ -106,7 +104,6 @@ const CustomerDetails = () => {
               setRecommendations(recResponse.recommendations);
             }
           } catch (recError) {
-            console.warn('Could not fetch recommendations:', recError);
             // Fallback to empty array if recommendations fail
             setRecommendations([]);
           }
@@ -132,7 +129,6 @@ const CustomerDetails = () => {
             setRetentionNotes([]);
           }
         } catch (notesError) {
-          console.warn('Could not fetch retention notes:', notesError);
           setRetentionNotes([]);
         }
       } else {

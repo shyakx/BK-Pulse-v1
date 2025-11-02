@@ -203,7 +203,7 @@ Write-Host "Password reset complete!"
 
 3. **Test connection:**
    ```bash
-   node server/scripts/testDBConnection.js
+   psql -h localhost -U postgres -d bk_pulse
    ```
 
 ---

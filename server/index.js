@@ -59,44 +59,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Debug endpoint to check database connection and customer count
-app.get('/api/debug/database', async (req, res) => {
-  try {
-    const pool = require('./config/database');
-    
-    // Get customer count
-    const result = await pool.query('SELECT COUNT(*) as count FROM customers');
-    const count = parseInt(result.rows[0].count || 0);
-    
-    // Get database name
-    const dbResult = await pool.query('SELECT current_database() as db_name');
-    const dbName = dbResult.rows[0].db_name;
-    
-    // Check DATABASE_URL (hide password)
-    const dbUrl = process.env.DATABASE_URL || 'Not set';
-    const safeUrl = dbUrl !== 'Not set' 
-      ? dbUrl.replace(/:[^:@]+@/, ':****@')
-      : dbUrl;
-    
-    res.json({
-      success: true,
-      database: {
-        name: dbName,
-        customerCount: count,
-        databaseUrl: safeUrl,
-        hasDatabaseUrl: !!process.env.DATABASE_URL,
-        nodeEnv: process.env.NODE_ENV
-      },
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
 
 // Serve static files from React app (if build exists)
 const path = require('path');
@@ -104,8 +66,7 @@ const fs = require('fs');
 const buildPath = path.join(__dirname, '../client/build/index.html');
 
 if (fs.existsSync(buildPath)) {
-  console.log('✅ Found React build, serving static files...');
-  // Serve static files from React app
+  // Serving static files from React build
   app.use(express.static(path.join(__dirname, '../client/build')));
   
   // Handle React routing - return all non-API requests to React app
@@ -117,7 +78,7 @@ if (fs.existsSync(buildPath)) {
     res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
   });
 } else {
-  console.log('⚠️  React build not found. Run: npm run build');
+  // React build not found - API only mode
   // 404 handler for development (API routes only)
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api')) {
@@ -140,9 +101,8 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 BK Pulse Server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:3000'}`);
+console.log(`Server running on port ${PORT}`);
+console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 module.exports = app;

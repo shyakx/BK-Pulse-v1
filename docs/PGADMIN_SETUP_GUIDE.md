@@ -147,7 +147,7 @@ node server/scripts/createEnv.js
 
 ### 7.1 Test from Node.js
 ```bash
-node server/scripts/testDBConnection.js
+Use pgAdmin or psql to verify the connection
 ```
 
 You should see:

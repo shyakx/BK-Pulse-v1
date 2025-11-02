@@ -156,3 +156,12 @@ test-results/
 .idea/
 *.iml
 
+# Development/Testing scripts (internal use only)
+server/scripts/test*.js
+server/scripts/check*.js
+server/scripts/remove*.js
+server/scripts/fix*.js
+GENERATE_CUSTOMERS_*.js
+*VERIFY*.md
+*TEST*.md
+

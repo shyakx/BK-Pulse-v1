@@ -101,6 +101,6 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "1. Update pgAdmin with password: 0123" -ForegroundColor White
 Write-Host "2. Update server/.env file with: DB_PASSWORD=0123" -ForegroundColor White
-Write-Host "3. Test: node server\scripts\testDBConnection.js" -ForegroundColor White
+Write-Host "3. Test connection using psql or your database client" -ForegroundColor White
 Write-Host ""
 

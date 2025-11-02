@@ -63,7 +63,6 @@ const RetentionNotes = () => {
         setNotes(mappedNotes);
       } else {
         // If API fails, set empty array instead of throwing
-        console.warn('Notes API returned unsuccessful:', response);
         setNotes([]);
       }
     } catch (err) {

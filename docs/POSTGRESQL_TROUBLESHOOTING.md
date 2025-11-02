@@ -124,5 +124,5 @@ If you just want to test ML predictions without the database:
 
 The prediction API works independently - you can still use:
 - `POST /api/predictions/single` - for single predictions
-- The test script: `node server/scripts/testPrediction.js` ✅
+- Test the prediction functionality by making a prediction request through the API ✅
 

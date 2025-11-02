@@ -146,7 +146,7 @@ Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "1. Update server/.env file with the new password" -ForegroundColor White
 Write-Host "2. Update pgAdmin connection with the new password" -ForegroundColor White
-Write-Host "3. Test connection: node server/scripts/testDBConnection.js" -ForegroundColor White
+Write-Host "3. Test connection using psql or your database client" -ForegroundColor White
 Write-Host ""
 Write-Host "Backup file: $pgHbaBackup" -ForegroundColor Gray
 Write-Host "  (You can delete this after confirming everything works)" -ForegroundColor Gray

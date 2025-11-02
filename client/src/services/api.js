@@ -277,6 +277,10 @@ export const api = {
   getAdminData: () => {
     return apiClient.get('/admin/data');
   },
+
+  generateCustomers: (count) => {
+    return apiClient.post('/admin/customers/generate', { count });
+  },
 };
 
 export default api;

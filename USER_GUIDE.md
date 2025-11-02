@@ -449,7 +449,7 @@ This starts:
 **Solution**:
 1. Check PostgreSQL is running
 2. Verify `server/.env` has correct database credentials
-3. Test connection: `node server/scripts/testDBConnection.js`
+3. Test connection using `psql` or your preferred database client
 
 ### "Prediction failed" error
 
@@ -504,8 +504,8 @@ This starts:
 
 ### Scripts
 
-- `server/scripts/testDBConnection.js` - Test database connection
 - `server/scripts/updateChurnScores.js` - Batch update churn scores
+- `server/scripts/addCustomersBatch.js` - Add customers in batches
 - `server/scripts/createEnv.js` - Interactive .env file creator
 
 ---
