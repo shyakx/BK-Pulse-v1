@@ -699,5 +699,162 @@ router.get('/data', authenticateToken, requireRole(['admin']), async (req, res) 
   }
 });
 
+// @route   POST /api/admin/customers/generate
+// @desc    Generate customers in batches (Admin only)
+// @access  Private (Admin only)
+router.post('/customers/generate', authenticateToken, requireRole(['admin']), async (req, res) => {
+  try {
+    const { count = 5000 } = req.body; // Default to 5000
+    
+    if (count > 10000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum batch size is 10,000. Use multiple requests for larger numbers.'
+      });
+    }
+
+    // Customer generation logic (inline to avoid child process issues)
+    const FIRST_NAMES = ['Jean', 'Marie', 'Paul', 'Claire', 'Eric', 'Grace', 'David', 'Ange', 'Peter', 'Vestine', 'Felix', 'Immaculee', 'John', 'Sarah', 'James', 'Alice', 'Robert', 'Mary', 'Michael', 'Patricia', 'William', 'Jennifer', 'Richard', 'Linda', 'Joseph', 'Elizabeth', 'Thomas', 'Barbara'];
+    const LAST_NAMES = ['MUGISHA', 'UWIMANA', 'KAYITARE', 'MUKAMANA', 'HABIMANA', 'BAPTISTE', 'RUTAGANDA', 'UWERA', 'MUNYANEZA', 'NYIRAHABIMANA', 'KAMANZI', 'MUKAMUSONI', 'NGIRIMANA', 'NKURUNZIZA', 'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia'];
+    const SEGMENTS = ['retail', 'sme', 'corporate', 'institutional_banking'];
+    const BRANCHES = ['Kigali Main', 'Nyarugenge', 'Kimisagara', 'Kacyiru', 'Remera', 'Gikondo', 'Nyamirambo', 'Muhima'];
+    const PRODUCT_TYPES = ['Savings', 'Current', 'Investment', 'Fixed Deposit', 'Treasury', 'Corporate Banking'];
+    const BATCH_SIZE = 500;
+
+    function randomElement(array) {
+      return array[Math.floor(Math.random() * array.length)];
+    }
+
+    function generateCustomerId(index) {
+      const prefix = 'CUST';
+      const padded = String(index + 1).padStart(6, '0');
+      return `${prefix}${padded}`;
+    }
+
+    function generateCustomer(index, officerIds) {
+      const firstName = randomElement(FIRST_NAMES);
+      const lastName = randomElement(LAST_NAMES);
+      const segment = randomElement(SEGMENTS);
+      
+      let churnScore, riskLevel;
+      const rand = Math.random();
+      if (rand < 0.25) {
+        churnScore = Math.random() * 30 + 5;
+        riskLevel = 'low';
+      } else if (rand < 0.65) {
+        churnScore = Math.random() * 30 + 35;
+        riskLevel = 'medium';
+      } else {
+        churnScore = Math.random() * 30 + 65;
+        riskLevel = 'high';
+      }
+      
+      const balance = segment === 'institutional_banking' 
+        ? Math.random() * 50000000 + 10000000
+        : segment === 'corporate'
+        ? Math.random() * 10000000 + 1000000
+        : Math.random() * 2000000 + 50000;
+      
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@email.com`;
+      const phone = `+250788${String(Math.floor(Math.random() * 1000000)).padStart(6, '0')}`;
+      
+      const createdDate = new Date();
+      createdDate.setDate(createdDate.getDate() - Math.floor(Math.random() * 365));
+      const updatedDate = new Date(createdDate.getTime() + Math.random() * 30 * 24 * 60 * 60 * 1000);
+      
+      return {
+        customer_id: generateCustomerId(index),
+        name: `${firstName} ${lastName}`,
+        email: email,
+        phone: phone,
+        segment: segment,
+        branch: randomElement(BRANCHES),
+        product_type: randomElement(PRODUCT_TYPES),
+        account_balance: parseFloat(balance.toFixed(2)),
+        churn_score: parseFloat(churnScore.toFixed(2)),
+        risk_level: riskLevel,
+        assigned_officer_id: officerIds.length > 0 ? randomElement(officerIds) : null,
+        created_at: createdDate.toISOString(),
+        updated_at: updatedDate.toISOString()
+      };
+    }
+
+    async function insertBatch(customers) {
+      if (customers.length === 0) return;
+      
+      const values = customers.map((c, index) => {
+        const base = index * 13;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13})`;
+      }).join(', ');
+      
+      const params = customers.flatMap(c => [
+        c.customer_id, c.name, c.email, c.phone, c.segment, c.branch,
+        c.product_type, c.account_balance, c.churn_score, c.risk_level,
+        c.assigned_officer_id, c.created_at, c.updated_at
+      ]);
+      
+      const query = `
+        INSERT INTO customers (
+          customer_id, name, email, phone, segment, branch,
+          product_type, account_balance, churn_score, risk_level,
+          assigned_officer_id, created_at, updated_at
+        ) VALUES ${values}
+        ON CONFLICT (customer_id) DO NOTHING
+      `;
+      
+      await pool.query(query, params);
+    }
+
+    // Get current count
+    const currentResult = await pool.query('SELECT COUNT(*) as count FROM customers');
+    const currentCount = parseInt(currentResult.rows[0].count || 0);
+    
+    // Get officer IDs
+    const officersResult = await pool.query("SELECT id FROM users WHERE role = 'retentionOfficer'");
+    const officerIds = officersResult.rows.map(row => row.id);
+    
+    // Generate customers in batches
+    let totalAdded = 0;
+    const startIndex = currentCount;
+    
+    // Process in smaller batches to avoid timeout
+    const processBatch = async (batchStart, batchSize) => {
+      const batch = [];
+      for (let j = 0; j < batchSize; j++) {
+        batch.push(generateCustomer(startIndex + batchStart + j, officerIds));
+      }
+      await insertBatch(batch);
+      return batch.length;
+    };
+
+    // Process all batches
+    for (let i = 0; i < count; i += BATCH_SIZE) {
+      const batchSize = Math.min(BATCH_SIZE, count - i);
+      const added = await processBatch(i, batchSize);
+      totalAdded += added;
+    }
+    
+    // Get final count
+    const finalResult = await pool.query('SELECT COUNT(*) as count FROM customers');
+    const finalCount = parseInt(finalResult.rows[0].count || 0);
+    
+    res.json({
+      success: true,
+      message: `Successfully generated ${totalAdded.toLocaleString()} customers`,
+      before: currentCount,
+      added: totalAdded,
+      after: finalCount
+    });
+    
+  } catch (error) {
+    console.error('Error generating customers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate customers',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
 
