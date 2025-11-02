@@ -1,121 +1,91 @@
+/**
+ * Remove duplicate customers, keeping the oldest record (lowest id)
+ * Usage: node server/scripts/removeDuplicates.js
+ * 
+ * WARNING: This will delete duplicate records. Make sure to backup first!
+ */
+
 const pool = require('../config/database');
 
 async function removeDuplicates() {
-  console.log('🔍 Checking for and removing duplicate customers...\n');
-  
   try {
-    await pool.query('SELECT 1');
-    console.log('✅ Database connection successful\n');
+    console.log('🔍 Checking for duplicates...\n');
     
-    // Find duplicate customer_id values
-    console.log('1️⃣ Finding duplicate customer_id values...');
-    const duplicateIds = await pool.query(`
+    // First, check how many duplicates exist
+    const duplicateCheck = await pool.query(`
       SELECT customer_id, COUNT(*) as count
       FROM customers
       GROUP BY customer_id
       HAVING COUNT(*) > 1
-      ORDER BY count DESC
     `);
     
-    if (duplicateIds.rows.length > 0) {
-      console.log(`⚠️  Found ${duplicateIds.rows.length} duplicate customer_id values`);
-      
-      for (const row of duplicateIds.rows) {
-        console.log(`   Processing: ${row.customer_id} (${row.count} duplicates)`);
-        
-        // Get all duplicates, keep the one with the most recent updated_at
-        const duplicates = await pool.query(`
-          SELECT id, customer_id, updated_at, created_at
-          FROM customers
-          WHERE customer_id = $1
-          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST, id DESC
-        `, [row.customer_id]);
-        
-        // Keep the first one (most recent), delete the rest
-        const toKeep = duplicates.rows[0];
-        const toDelete = duplicates.rows.slice(1);
-        
-        if (toDelete.length > 0) {
-          const deleteIds = toDelete.map(d => d.id);
-          await pool.query(`
-            DELETE FROM customers
-            WHERE id = ANY($1)
-          `, [deleteIds]);
-          
-          console.log(`   ✅ Kept ID ${toKeep.id}, deleted ${toDelete.length} duplicates`);
-        }
-      }
-      
-      console.log('\n✅ Duplicate customer_id values removed\n');
-    } else {
-      console.log('✅ No duplicate customer_id values found\n');
+    if (duplicateCheck.rows.length === 0) {
+      console.log('✅ No duplicates found. Nothing to remove.\n');
+      await pool.end();
+      return;
     }
     
-    // Find duplicate email addresses (keep one, delete others)
-    console.log('2️⃣ Finding duplicate email addresses...');
-    const duplicateEmails = await pool.query(`
-      SELECT email, COUNT(*) as count
-      FROM customers
-      WHERE email IS NOT NULL AND email != ''
-      GROUP BY email
-      HAVING COUNT(*) > 1
-      ORDER BY count DESC
+    const totalDuplicates = duplicateCheck.rows.reduce((sum, row) => sum + (parseInt(row.count) - 1), 0);
+    console.log(`⚠️  Found ${duplicateCheck.rows.length} customer_id groups with duplicates`);
+    console.log(`📊 Total duplicate records to remove: ${totalDuplicates.toLocaleString()}\n`);
+    
+    // Confirm before proceeding
+    console.log('🗑️  Removing duplicates (keeping the record with lowest id)...\n');
+    
+    // Remove duplicates, keeping the one with the lowest id
+    const result = await pool.query(`
+      DELETE FROM customers
+      WHERE id NOT IN (
+        SELECT MIN(id)
+        FROM customers
+        GROUP BY customer_id
+      )
     `);
     
-    if (duplicateEmails.rows.length > 0) {
-      console.log(`⚠️  Found ${duplicateEmails.rows.length} duplicate email addresses`);
-      
-      for (const row of duplicateEmails.rows) {
-        // Get all duplicates, keep the one with the most recent data
-        const duplicates = await pool.query(`
-          SELECT id, email, updated_at, created_at
-          FROM customers
-          WHERE email = $1
-          ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST, id DESC
-        `, [row.email]);
-        
-        // Keep the first one, delete the rest
-        const toKeep = duplicates.rows[0];
-        const toDelete = duplicates.rows.slice(1);
-        
-        if (toDelete.length > 0) {
-          const deleteIds = toDelete.map(d => d.id);
-          await pool.query(`
-            DELETE FROM customers
-            WHERE id = ANY($1)
-          `, [deleteIds]);
-          
-          console.log(`   ✅ Kept ID ${toKeep.id} for ${row.email}, deleted ${toDelete.length} duplicates`);
-        }
-      }
-      
-      console.log('\n✅ Duplicate email addresses removed\n');
-    } else {
-      console.log('✅ No duplicate email addresses found\n');
-    }
+    const deletedCount = result.rowCount;
+    console.log(`✅ Removed ${deletedCount.toLocaleString()} duplicate records\n`);
     
-    // Final count
+    // Verify final count
     const finalCount = await pool.query('SELECT COUNT(*) as count FROM customers');
     console.log(`📊 Final customer count: ${parseInt(finalCount.rows[0].count).toLocaleString()}\n`);
     
-    console.log('✅ Duplicate removal complete!');
+    // Verify no duplicates remain
+    const verifyDuplicates = await pool.query(`
+      SELECT customer_id, COUNT(*) as count
+      FROM customers
+      GROUP BY customer_id
+      HAVING COUNT(*) > 1
+    `);
+    
+    if (verifyDuplicates.rows.length === 0) {
+      console.log('✅ Verification: No duplicates remain!\n');
+    } else {
+      console.log('⚠️  Warning: Some duplicates may still exist. Please check manually.\n');
+    }
     
   } catch (error) {
     console.error('❌ Error:', error.message);
-    throw error;
+    if (error.message.includes('relation') || error.message.includes('does not exist')) {
+      console.error('\n💡 Make sure you are connected to the correct database.\n');
+    }
   } finally {
     await pool.end();
   }
 }
 
-// Run the cleanup
-removeDuplicates()
-  .then(() => {
-    console.log('\n✅ Script completed');
-    process.exit(0);
-  })
-  .catch(error => {
-    console.error('\n❌ Script failed:', error);
-    process.exit(1);
-  });
+// Add confirmation prompt (simple yes/no check)
+const readline = require('readline');
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
+rl.question('⚠️  This will delete duplicate records. Continue? (yes/no): ', (answer) => {
+  if (answer.toLowerCase() === 'yes' || answer.toLowerCase() === 'y') {
+    removeDuplicates();
+  } else {
+    console.log('❌ Operation cancelled.\n');
+    process.exit(0);
+  }
+  rl.close();
+});
