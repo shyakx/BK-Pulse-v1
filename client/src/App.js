@@ -83,14 +83,46 @@ function App() {
               <Route path="reports" element={<Reports />} />
               
               {/* Admin routes */}
-              <Route path="admin/dashboard" element={<AdminDashboard />} />
-              <Route path="admin/users" element={<AdminUsers />} />
-              <Route path="admin/data" element={<AdminData />} />
-              <Route path="admin/models" element={<AdminModels />} />
-              <Route path="admin/audit" element={<AdminAudit />} />
-              <Route path="admin/settings" element={<AdminSettings />} />
-              <Route path="admin/maintenance" element={<BackupMaintenance />} />
-              <Route path="admin/reports" element={<Reports />} />
+              <Route path="admin/dashboard" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/users" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminUsers />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/data" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminData />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/models" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminModels />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/audit" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminAudit />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/settings" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminSettings />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/maintenance" element={
+                <ProtectedRoute requiredRole="admin">
+                  <BackupMaintenance />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/reports" element={
+                <ProtectedRoute requiredRole="admin">
+                  <Reports />
+                </ProtectedRoute>
+              } />
               
               {/* Catch all route */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
