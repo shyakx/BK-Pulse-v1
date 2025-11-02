@@ -148,8 +148,10 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
             if (label) {
               label += ': ';
             }
-            const value = type === 'bar' ? context.parsed.y : context.parsed.y;
-            label += value.toLocaleString() + ' customers';
+            const value = context.parsed.y !== null && context.parsed.y !== undefined 
+              ? context.parsed.y 
+              : 0;
+            label += (value || 0).toLocaleString() + ' customers';
             return label;
           }
         }

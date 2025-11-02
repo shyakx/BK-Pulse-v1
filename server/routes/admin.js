@@ -709,7 +709,8 @@ router.post('/customers/generate', authenticateToken, requireRole(['admin']), as
     if (count > 10000) {
       return res.status(400).json({
         success: false,
-        message: 'Maximum batch size is 10,000. Use multiple requests for larger numbers.'
+        message: 'Maximum batch size is 10,000. Use multiple requests for larger numbers.',
+        suggestion: 'Make multiple calls with count: 10000'
       });
     }
 
