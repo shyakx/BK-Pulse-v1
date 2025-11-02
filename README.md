@@ -6,6 +6,10 @@ A comprehensive churn intelligence platform built for Bank of Kigali, featuring 
 
 BK Pulse is a sophisticated platform designed to help Bank of Kigali identify, analyze, and prevent customer churn through data-driven insights and targeted retention strategies.
 
+# Video presentations
+
+https://youtu.be/8eXAD5smTxo
+
 ## 🚀 Technology Stack
 
 - **Frontend**: React 18 + Bootstrap 5 + Chart.js
@@ -463,4 +467,5 @@ Bank of Kigali
 ---
 
 For technical support or questions, please contact the development team.
+
 
