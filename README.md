@@ -58,81 +58,198 @@ BK-PULSE/
 
 ## 🛠️ Installation & Setup
 
-### Prerequisites
+### Step-by-Step Installation Guide
 
-- Node.js (v16 or higher)
-- PostgreSQL (v12 or higher)
-- npm or yarn
+Follow these instructions carefully to set up the application on your local machine.
 
-### 1. Clone and Install Dependencies
+#### Prerequisites
+
+Before starting, ensure you have the following installed:
+- **Node.js** (v16 or higher) - [Download here](https://nodejs.org/)
+- **PostgreSQL** (v12 or higher) - [Download here](https://www.postgresql.org/download/)
+- **Git** (for cloning the repository) - [Download here](https://git-scm.com/)
+- **Python 3.8+** (for ML model functionality) - [Download here](https://www.python.org/downloads/)
+
+#### Step 1: Clone the Repository
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd BK-PULSE
+git clone https://github.com/shyakx/BK-Pulse-v1.git
 
-# Install all dependencies
-npm run install-all
+# Navigate to the project directory
+cd BK-Pulse-v1
 ```
 
-### 2. Database Setup
+#### Step 2: Install Dependencies
 
 ```bash
-# Create PostgreSQL database
+# Install dependencies for root, server, and client
+npm run install-all
+
+# This will install:
+# - Root dependencies (for development scripts)
+# - Server dependencies (Node.js backend)
+# - Client dependencies (React frontend)
+```
+
+**Note**: This may take a few minutes depending on your internet connection.
+
+#### Step 3: Set Up PostgreSQL Database
+
+##### Option A: Using Command Line (Recommended for Linux/Mac)
+
+```bash
+# Create a new PostgreSQL database
 createdb bk_pulse
 
-# Run schema and seed data
+# Or if you need to specify user:
+createdb -U postgres bk_pulse
+
+# Run the schema file to create tables
 psql -d bk_pulse -f server/sql/schema.sql
+
+# Run the seed file to populate initial data
 psql -d bk_pulse -f server/sql/seed.sql
 ```
 
-### 3. Environment Configuration
+##### Option B: Using pgAdmin (Windows/Visual Tool)
+
+1. Open pgAdmin
+2. Create a new database named `bk_pulse`
+3. Right-click on the database → Query Tool
+4. Open `server/sql/schema.sql` and execute it
+5. Open `server/sql/seed.sql` and execute it
+
+##### Option C: Using psql Command Line (Windows)
+
+```bash
+# Open PowerShell or Command Prompt as Administrator
+# Navigate to PostgreSQL bin directory (e.g., C:\Program Files\PostgreSQL\15\bin)
+
+# Create database
+.\createdb.exe -U postgres bk_pulse
+
+# Run schema
+.\psql.exe -U postgres -d bk_pulse -f "D:\Projects\BK-PULSE\server\sql\schema.sql"
+
+# Run seed
+.\psql.exe -U postgres -d bk_pulse -f "D:\Projects\BK-PULSE\server\sql\seed.sql"
+```
+
+#### Step 4: Configure Environment Variables
 
 Create a `.env` file in the `server/` directory:
+
+**On Windows:**
+```bash
+cd server
+copy env.example .env
+notepad .env
+```
+
+**On Linux/Mac:**
+```bash
+cd server
+cp env.example .env
+nano .env
+```
+
+Edit the `.env` file with your database credentials:
 
 ```env
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=bk_pulse
-DB_USER=your_username
-DB_PASSWORD=your_password
+DB_USER=postgres
+DB_PASSWORD=your_postgres_password
 
-# JWT Configuration
-JWT_SECRET=your_super_secret_jwt_key_here
+# JWT Configuration (generate a random string for production)
+JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
 JWT_EXPIRE=7d
 
 # Server Configuration
 PORT=5000
 NODE_ENV=development
 
-# CORS Configuration
+# CORS Configuration (for development)
 CORS_ORIGIN=http://localhost:3000
 ```
 
-### 4. Start the Application
+**Important**: 
+- Replace `your_postgres_password` with your actual PostgreSQL password
+- For production, use a strong random string for `JWT_SECRET`
+- If your PostgreSQL is on a different port, update `DB_PORT`
+
+#### Step 5: Set Up Python ML Environment (Optional but Recommended)
+
+If you want to use the ML prediction features:
 
 ```bash
-# Start both frontend and backend
-npm run dev
+# Navigate to ML directory
+cd ml
 
-# Or start individually
-npm run server    # Backend only
-npm run client    # Frontend only
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Or use pip3 if pip is for Python 2
+pip3 install -r requirements.txt
+
+# Return to root directory
+cd ..
 ```
 
-The application will be available at:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
+**Note**: The application can run without Python setup, but prediction features will not work.
+
+### 4. Start the Application
+
+#### Development Mode (Recommended for Development)
+
+```bash
+# Start both frontend and backend concurrently
+npm run dev
+
+# The application will be available at:
+# - Frontend: http://localhost:3000
+# - Backend API: http://localhost:5000
+```
+
+#### Production Mode (Single Server)
+
+```bash
+# Build the frontend first
+npm run build
+
+# Start the production server (serves both API and frontend)
+npm start
+
+# The application will be available at:
+# - Full Application: http://localhost:5000
+```
+
+### 5. Access the Application
+
+Once started, open your browser and navigate to:
+- **Development**: http://localhost:3000
+- **Production**: http://localhost:5000
+- **Live Deployment**: [https://bk-pulse-v2.vercel.app](https://bk-pulse-v2.vercel.app)
+
+Login using the credentials provided in the "Default Login Credentials" section above.
+
+## 🌐 Live Deployment
+
+**Application URL:** [https://bk-pulse-v2.vercel.app](https://bk-pulse-v2.vercel.app)
+
+The application is deployed and accessible online. You can test all features using the credentials below.
 
 ## 🔐 Default Login Credentials
 
 | Role | Email | Password |
 |------|-------|----------|
-| Retention Officer | officer1@bk.rw | password123 |
-| Retention Analyst | analyst1@bk.rw | password123 |
-| Retention Manager | manager1@bk.rw | password123 |
-| Admin | admin@bk.rw | password123 |
+| Retention Officer | officer1@bk.rw | password |
+| Retention Analyst | analyst1@bk.rw | password |
+| Retention Manager | manager1@bk.rw | password |
+| Admin | admin@bk.rw | password |
 
 ## 📊 Features by Role
 
@@ -267,6 +384,10 @@ python ml/train_model.py
 See `ml/README.md` for detailed documentation on the ML pipeline.
 
 ## 📚 Documentation
+
+### Project Submission Documents
+- **[TESTING_RESULTS.md](TESTING_RESULTS.md)** - Comprehensive testing results, screenshots, and performance analysis
+- **[ANALYSIS.md](ANALYSIS.md)** - Detailed analysis, discussion, and recommendations for the project
 
 ### Quick References
 - **[QUICK_START.md](QUICK_START.md)** - Fastest way to get the application running
