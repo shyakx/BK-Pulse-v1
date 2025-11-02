@@ -82,7 +82,13 @@ router.get('/', authenticateToken, async (req, res) => {
 
     if (customer_id) {
       paramCount++;
-      query += ` AND (rn.customer_id = $${paramCount} OR c.customer_id = $${paramCount})`;
+      // Handle both numeric ID and string customer_id - cast appropriately
+      const isNumeric = /^\d+$/.test(customer_id);
+      if (isNumeric) {
+        query += ` AND (rn.customer_id = $${paramCount}::integer OR c.customer_id = $${paramCount}::text)`;
+      } else {
+        query += ` AND (rn.customer_id = $${paramCount}::integer OR c.customer_id = $${paramCount})`;
+      }
       params.push(customer_id);
     }
 
@@ -125,7 +131,13 @@ router.get('/', authenticateToken, async (req, res) => {
     
     if (customer_id) {
       countParamCount++;
-      countQuery += ` AND (rn.customer_id = $${countParamCount} OR c.customer_id = $${countParamCount})`;
+      // Handle both numeric ID and string customer_id - cast appropriately
+      const isNumeric = /^\d+$/.test(customer_id);
+      if (isNumeric) {
+        countQuery += ` AND (rn.customer_id = $${countParamCount}::integer OR c.customer_id = $${countParamCount}::text)`;
+      } else {
+        countQuery += ` AND (rn.customer_id = $${countParamCount}::integer OR c.customer_id = $${countParamCount})`;
+      }
       countParams.push(customer_id);
     }
     
