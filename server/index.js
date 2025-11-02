@@ -59,6 +59,45 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Debug endpoint to check database connection and customer count
+app.get('/api/debug/database', async (req, res) => {
+  try {
+    const pool = require('./config/database');
+    
+    // Get customer count
+    const result = await pool.query('SELECT COUNT(*) as count FROM customers');
+    const count = parseInt(result.rows[0].count || 0);
+    
+    // Get database name
+    const dbResult = await pool.query('SELECT current_database() as db_name');
+    const dbName = dbResult.rows[0].db_name;
+    
+    // Check DATABASE_URL (hide password)
+    const dbUrl = process.env.DATABASE_URL || 'Not set';
+    const safeUrl = dbUrl !== 'Not set' 
+      ? dbUrl.replace(/:[^:@]+@/, ':****@')
+      : dbUrl;
+    
+    res.json({
+      success: true,
+      database: {
+        name: dbName,
+        customerCount: count,
+        databaseUrl: safeUrl,
+        hasDatabaseUrl: !!process.env.DATABASE_URL,
+        nodeEnv: process.env.NODE_ENV
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Serve static files from React app (if build exists)
 const path = require('path');
 const fs = require('fs');
