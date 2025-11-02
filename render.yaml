@@ -1,0 +1,48 @@
+# Render Blueprint Configuration
+# This file helps deploy to Render automatically
+
+services:
+  # PostgreSQL Database
+  - type: pg
+    name: bk-pulse-database
+    plan: free
+    databaseName: bk_pulse
+
+  # Backend API
+  - type: web
+    name: bk-pulse-backend
+    env: node
+    plan: free
+    region: oregon  # Change to your preferred region
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRE
+        value: 7d
+      - key: CORS_ORIGIN
+        fromService:
+          type: web
+          name: bk-pulse-frontend
+          property: host
+    # Database connection will use DATABASE_URL automatically
+
+  # Frontend Static Site
+  - type: web
+    name: bk-pulse-frontend
+    env: static
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./client/build
+    envVars:
+      - key: REACT_APP_API_URL
+        fromService:
+          type: web
+          name: bk-pulse-backend
+          property: host
+

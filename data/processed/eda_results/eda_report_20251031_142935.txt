@@ -1,0 +1,17 @@
+============================================================
+BK Pulse - Exploratory Data Analysis Report
+============================================================
+
+Generated: 2025-10-31 14:29:35
+
+Basic Statistics:
+  Dataset Shape: (200000, 25)
+  Total Records: 200,000
+  Total Features: 25
+
+Churn Distribution:
+  1: 121,732
+  0: 78,268
+
+============================================================
+Report saved successfully.
