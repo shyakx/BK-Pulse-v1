@@ -266,21 +266,57 @@ python ml/train_model.py
 
 See `ml/README.md` for detailed documentation on the ML pipeline.
 
+## 📚 Documentation
+
+### Quick References
+- **[QUICK_START.md](QUICK_START.md)** - Fastest way to get the application running
+- **[USER_GUIDE.md](USER_GUIDE.md)** - Complete user guide and feature documentation
+- **[PREDICTION_FEATURES.md](PREDICTION_FEATURES.md)** - ML prediction features and usage
+
+### Deployment & Hosting
+- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Complete deployment instructions for local and production
+- **[VERCEL_SUPABASE_SETUP.md](VERCEL_SUPABASE_SETUP.md)** - Best performance combo: Vercel frontend + Supabase database ⭐
+- **[HOSTING_GUIDE.md](HOSTING_GUIDE.md)** - Detailed guide for hosting on cloud platforms (Railway, Fly.io, Render, Vercel)
+- **[HOSTING_QUICK_START.md](HOSTING_QUICK_START.md)** - 5-minute quick setup for Render
+
+### Technical Documentation
+- **[docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)** - PostgreSQL database setup and configuration
+- **[docs/PGADMIN_SETUP_GUIDE.md](docs/PGADMIN_SETUP_GUIDE.md)** - pgAdmin setup and usage
+- **[ml/README.md](ml/README.md)** - Machine Learning pipeline documentation
+- **[ml/PREDICTION_API.md](ml/PREDICTION_API.md)** - ML prediction API reference
+
 ## 🚀 Deployment
 
-### Production Build
+### Local Production Build
 
 ```bash
 # Build the frontend
 npm run build
 
-# The built files will be in client/build/
+# Start production server (serves both API and frontend)
+npm start
+
+# Access at http://localhost:5000
 ```
+
+### Cloud Hosting
+
+For hosting on cloud platforms (all free options):
+- **[HOSTING_QUICK_START.md](HOSTING_QUICK_START.md)** - Quick setup (recommended: Railway or Fly.io)
+- **[HOSTING_GUIDE.md](HOSTING_GUIDE.md)** - Detailed hosting instructions for Railway, Fly.io, Render, and Vercel
+
+**Recommended Free Platforms:**
+1. **Vercel + Supabase** ⭐⭐⭐ - Best performance (Vercel frontend + Supabase database)
+2. **Railway** ⭐⭐ - $5 free credit/month, always-on, easiest full-stack setup
+3. **Fly.io** ⭐⭐ - Always-on, no credit card required
+4. **Render** ⭐ - Free but services sleep after inactivity
+
+**See `VERCEL_SUPABASE_SETUP.md` for the Vercel + Supabase combo setup guide!**
 
 ### Environment Variables
 
 Ensure all production environment variables are properly configured:
-- Database connection details
+- Database connection details (or `DATABASE_URL` for cloud)
 - JWT secret key
 - CORS origins
 - API endpoints
