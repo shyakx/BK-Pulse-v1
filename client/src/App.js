@@ -1,39 +1,46 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Customers from './pages/Customers';
-import CustomerDetails from './pages/CustomerDetails';
-import Analysis from './pages/Analysis';
-import ModelInsights from './pages/ModelInsights';
-import Recommendations from './pages/Recommendations';
-import Reports from './pages/Reports';
-import Team from './pages/Team';
-import Approvals from './pages/Approvals';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminUsers from './pages/AdminUsers';
-import AdminData from './pages/AdminData';
-import AdminModels from './pages/AdminModels';
-import AdminAudit from './pages/AdminAudit';
-import AdminSettings from './pages/AdminSettings';
 import Unauthorized from './pages/Unauthorized';
-// Retention Officer pages
-import RetentionNotes from './pages/RetentionNotes';
-import MyTasks from './pages/MyTasks';
-import Performance from './pages/Performance';
-// Retention Analyst pages
-import BulkPrediction from './pages/BulkPrediction';
-import CampaignManagement from './pages/CampaignManagement';
-import CampaignPerformance from './pages/CampaignPerformance';
-import CustomerSegmentation from './pages/CustomerSegmentation';
-// Manager pages
-import StrategicAnalytics from './pages/StrategicAnalytics';
-import BudgetROI from './pages/BudgetROI';
-// Admin pages
-import BackupMaintenance from './pages/BackupMaintenance';
+
+// Lazy load components for better performance
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Customers = lazy(() => import('./pages/Customers'));
+const CustomerDetails = lazy(() => import('./pages/CustomerDetails'));
+const Analysis = lazy(() => import('./pages/Analysis'));
+const ModelInsights = lazy(() => import('./pages/ModelInsights'));
+const Recommendations = lazy(() => import('./pages/Recommendations'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Team = lazy(() => import('./pages/Team'));
+const Approvals = lazy(() => import('./pages/Approvals'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
+const AdminData = lazy(() => import('./pages/AdminData'));
+const AdminModels = lazy(() => import('./pages/AdminModels'));
+const AdminAudit = lazy(() => import('./pages/AdminAudit'));
+const AdminSettings = lazy(() => import('./pages/AdminSettings'));
+const RetentionNotes = lazy(() => import('./pages/RetentionNotes'));
+const MyTasks = lazy(() => import('./pages/MyTasks'));
+const Performance = lazy(() => import('./pages/Performance'));
+const BulkPrediction = lazy(() => import('./pages/BulkPrediction'));
+const PredictionInsights = lazy(() => import('./pages/PredictionInsights'));
+const CampaignManagement = lazy(() => import('./pages/CampaignManagement'));
+const CampaignPerformance = lazy(() => import('./pages/CampaignPerformance'));
+const StrategicAnalytics = lazy(() => import('./pages/StrategicAnalytics'));
+const BudgetROI = lazy(() => import('./pages/BudgetROI'));
+const BackupMaintenance = lazy(() => import('./pages/BackupMaintenance'));
+
+// Loading component
+const LoadingSpinner = () => (
+  <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
+    <div className="spinner-border text-primary" role="status">
+      <span className="visually-hidden">Loading...</span>
+    </div>
+  </div>
+);
 
 function App() {
   return (
@@ -53,74 +60,183 @@ function App() {
             }>
               {/* Dashboard routes for all roles */}
               <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="dashboard" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Dashboard />
+                </Suspense>
+              } />
               
               {/* Customer management routes */}
-              <Route path="customers" element={<Customers />} />
-              <Route path="customers/:id" element={<CustomerDetails />} />
+              <Route path="customers" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Customers />
+                </Suspense>
+              } />
+              <Route path="customers/:id" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <CustomerDetails />
+                </Suspense>
+              } />
               
               {/* Retention Officer routes */}
-              <Route path="retention-notes" element={<RetentionNotes />} />
-              <Route path="tasks" element={<MyTasks />} />
-              <Route path="performance" element={<Performance />} />
+              <Route path="retention-notes" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <RetentionNotes />
+                </Suspense>
+              } />
+              <Route path="tasks" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <MyTasks />
+                </Suspense>
+              } />
+              <Route path="performance" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Performance />
+                </Suspense>
+              } />
               
-              {/* Retention Analyst routes */}
-              <Route path="analysis" element={<Analysis />} />
-              <Route path="model-insights" element={<ModelInsights />} />
-              <Route path="recommendations" element={<Recommendations />} />
-              <Route path="bulk-prediction" element={<BulkPrediction />} />
-              <Route path="campaigns" element={<CampaignManagement />} />
-              <Route path="campaigns/:id/performance" element={<CampaignPerformance />} />
-              <Route path="segmentation" element={<CustomerSegmentation />} />
+              {/* Retention Analyst routes - Core Daily Use */}
+              <Route path="prediction-insights" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <PredictionInsights />
+                </Suspense>
+              } />
+              <Route path="recommendations" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Recommendations />
+                </Suspense>
+              } />
+              
+              {/* Retention Analyst routes - Analytical & Strategic */}
+              <Route path="behavioral-analysis" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Analysis />
+                </Suspense>
+              } />
+              <Route path="campaigns" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <CampaignManagement />
+                </Suspense>
+              } />
+              <Route path="campaigns/:id/performance" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <CampaignPerformance />
+                </Suspense>
+              } />
+              <Route path="explainability" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <ModelInsights />
+                </Suspense>
+              } />
+              
+              {/* Retention Analyst routes - Advanced Tools */}
+              <Route path="model-insights" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <ModelInsights />
+                </Suspense>
+              } />
+              <Route path="data-management" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <AdminData />
+                </Suspense>
+              } />
+              
+              {/* Legacy routes for backward compatibility */}
+              <Route path="analysis" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Analysis />
+                </Suspense>
+              } />
+              <Route path="bulk-prediction" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <BulkPrediction />
+                </Suspense>
+              } />
               
               {/* Retention Manager routes */}
-              <Route path="team" element={<Team />} />
-              <Route path="approvals" element={<Approvals />} />
-              <Route path="strategic-analytics" element={<StrategicAnalytics />} />
-              <Route path="budget-roi" element={<BudgetROI />} />
+              <Route path="team" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Team />
+                </Suspense>
+              } />
+              <Route path="approvals" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Approvals />
+                </Suspense>
+              } />
+              <Route path="strategic-analytics" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <StrategicAnalytics />
+                </Suspense>
+              } />
+              <Route path="budget-roi" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <BudgetROI />
+                </Suspense>
+              } />
               
               {/* Reports route for all roles */}
-              <Route path="reports" element={<Reports />} />
+              <Route path="reports" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Reports />
+                </Suspense>
+              } />
               
               {/* Admin routes */}
               <Route path="admin/dashboard" element={
                 <ProtectedRoute requiredRole="admin">
-                  <AdminDashboard />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AdminDashboard />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               <Route path="admin/users" element={
                 <ProtectedRoute requiredRole="admin">
-                  <AdminUsers />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AdminUsers />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               <Route path="admin/data" element={
                 <ProtectedRoute requiredRole="admin">
-                  <AdminData />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AdminData />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               <Route path="admin/models" element={
                 <ProtectedRoute requiredRole="admin">
-                  <AdminModels />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AdminModels />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               <Route path="admin/audit" element={
                 <ProtectedRoute requiredRole="admin">
-                  <AdminAudit />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AdminAudit />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               <Route path="admin/settings" element={
                 <ProtectedRoute requiredRole="admin">
-                  <AdminSettings />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AdminSettings />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               <Route path="admin/maintenance" element={
                 <ProtectedRoute requiredRole="admin">
-                  <BackupMaintenance />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <BackupMaintenance />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               <Route path="admin/reports" element={
                 <ProtectedRoute requiredRole="admin">
-                  <Reports />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Reports />
+                  </Suspense>
                 </ProtectedRoute>
               } />
               

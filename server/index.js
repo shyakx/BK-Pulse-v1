@@ -41,6 +41,7 @@ app.use('/api/predictions', require('./routes/predictions'));
 app.use('/api/customers', require('./routes/customers'));
 app.use('/api/retention-notes', require('./routes/retentionNotes'));
 app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/assignments', require('./routes/assignments'));
 app.use('/api/performance', require('./routes/performance'));
 app.use('/api/campaigns', require('./routes/campaigns'));
 app.use('/api/segmentation', require('./routes/segmentation'));
@@ -61,30 +62,32 @@ app.get('/api/health', (req, res) => {
 
 
 // Serve static files from React app (if build exists)
-const path = require('path');
-const fs = require('fs');
-const buildPath = path.join(__dirname, '../client/build/index.html');
+// Only check in production to speed up dev startup
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+  const fs = require('fs');
+  const buildPath = path.join(__dirname, '../client/build/index.html');
 
-if (fs.existsSync(buildPath)) {
-  // Serving static files from React build
-  app.use(express.static(path.join(__dirname, '../client/build')));
-  
-  // Handle React routing - return all non-API requests to React app
-  app.get('*', (req, res, next) => {
-    // Skip API routes
-    if (req.path.startsWith('/api')) {
-      return next();
-    }
-    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
-  });
+  if (fs.existsSync(buildPath)) {
+    // Serving static files from React build
+    app.use(express.static(path.join(__dirname, '../client/build')));
+    
+    // Handle React routing - return all non-API requests to React app
+    app.get('*', (req, res, next) => {
+      // Skip API routes
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+    });
+  }
 } else {
-  // React build not found - API only mode
-  // 404 handler for development (API routes only)
+  // Development mode - API only (React dev server handles frontend)
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api')) {
       res.status(404).json({ message: 'API route not found' });
     } else {
-      res.status(404).json({ message: 'Frontend not built. Run: npm run build' });
+      res.status(404).json({ message: 'Frontend served by React dev server on port 3000' });
     }
   });
 }
@@ -101,8 +104,8 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-console.log(`Server running on port ${PORT}`);
-console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`✓ Server running on port ${PORT}`);
+  console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 module.exports = app;

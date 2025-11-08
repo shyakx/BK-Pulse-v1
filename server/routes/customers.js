@@ -74,6 +74,8 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const result = await pool.query(query, params);
 
+    // Add cache headers for better performance (10 seconds for list data)
+    res.set('Cache-Control', 'private, max-age=10');
     res.json({
       success: true,
       customers: result.rows,

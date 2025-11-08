@@ -29,57 +29,76 @@ router.get('/overview', authenticateToken, async (req, res) => {
         return res.status(403).json({ message: 'Invalid role' });
     }
 
+    // Add cache headers for better performance (30 seconds)
+    res.set('Cache-Control', 'private, max-age=30');
     res.json(overviewData);
   } catch (error) {
     console.error('Dashboard overview error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
 // Helper functions for different roles
 async function getRetentionOfficerData(userId) {
-  // Get assigned customers count
-  const customersResult = await pool.query(
-    'SELECT COUNT(*) as count FROM customers WHERE assigned_officer_id = $1',
-    [userId]
-  );
+  // Execute all queries in parallel for better performance
+  const [
+    customersResult,
+    totalCustomersResult,
+    riskDistributionResult,
+    totalHighRiskResult,
+    actionsResult,
+    currentMonthData
+  ] = await Promise.all([
+    // Get assigned customers count
+    pool.query(
+      'SELECT COUNT(*) as count FROM customers WHERE assigned_officer_id = $1',
+      [userId]
+    ).catch(err => { console.error('Query 1 error:', err); return { rows: [{ count: 0 }] }; }),
+    // Get TOTAL customers count
+    pool.query('SELECT COUNT(*) as count FROM customers').catch(err => { console.error('Query 2 error:', err); return { rows: [{ count: 0 }] }; }),
+    // Get risk distribution in one query
+    pool.query(
+      `SELECT 
+        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
+       FROM customers 
+       WHERE assigned_officer_id = $1 AND risk_level IS NOT NULL`,
+      [userId]
+    ).catch(err => { console.error('Query 3 error:', err); return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; }),
+    // Get TOTAL high risk cases
+    pool.query(
+      'SELECT COUNT(*) as count FROM customers WHERE risk_level = $1',
+      ['high']
+    ).catch(err => { console.error('Query 4 error:', err); return { rows: [{ count: 0 }] }; }),
+    // Get completed actions count
+    pool.query(
+      'SELECT COUNT(*) as count FROM actions WHERE officer_id = $1 AND status = $2',
+      [userId, 'completed']
+    ).catch(err => { console.error('Query 5 error:', err); return { rows: [{ count: 0 }] }; }),
+    // Get current month risk data
+    pool.query(
+      `SELECT 
+        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
+       FROM customers
+       WHERE assigned_officer_id = $1 AND risk_level IS NOT NULL`,
+      [userId]
+    ).catch(err => { console.error('Query 6 error:', err); return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; })
+  ]);
+
   const assignedCustomers = parseInt(customersResult.rows[0]?.count || 0);
-
-  // Get TOTAL customers count (all customers in system)
-  const totalCustomersResult = await pool.query('SELECT COUNT(*) as count FROM customers');
   const totalCustomers = parseInt(totalCustomersResult.rows[0]?.count || 0);
-
-  // Get high risk cases (assigned to this officer)
-  const highRiskResult = await pool.query(
-    'SELECT COUNT(*) as count FROM customers WHERE assigned_officer_id = $1 AND risk_level = $2',
-    [userId, 'high']
-  );
-  const highRiskCases = parseInt(highRiskResult.rows[0]?.count || 0);
-
-  // Get TOTAL high risk cases (all customers)
-  const totalHighRiskResult = await pool.query(
-    'SELECT COUNT(*) as count FROM customers WHERE risk_level = $1',
-    ['high']
-  );
+  const highRiskCases = parseInt(riskDistributionResult.rows[0]?.high_risk || 0);
+  const mediumRisk = parseInt(riskDistributionResult.rows[0]?.medium_risk || 0);
+  const lowRisk = parseInt(riskDistributionResult.rows[0]?.low_risk || 0);
   const totalHighRiskCases = parseInt(totalHighRiskResult.rows[0]?.count || 0);
-
-  // Get medium and low risk counts
-  const mediumRiskResult = await pool.query(
-    'SELECT COUNT(*) as count FROM customers WHERE assigned_officer_id = $1 AND risk_level = $2',
-    [userId, 'medium']
-  );
-  const lowRiskResult = await pool.query(
-    'SELECT COUNT(*) as count FROM customers WHERE assigned_officer_id = $1 AND risk_level = $2',
-    [userId, 'low']
-  );
-  const mediumRisk = parseInt(mediumRiskResult.rows[0]?.count || 0);
-  const lowRisk = parseInt(lowRiskResult.rows[0]?.count || 0);
-
-  // Get completed actions count
-  const actionsResult = await pool.query(
-    'SELECT COUNT(*) as count FROM actions WHERE officer_id = $1 AND status = $2',
-    [userId, 'completed']
-  );
   const actionsCompleted = parseInt(actionsResult.rows[0]?.count || 0);
 
   // Calculate retention rate based on customer risk levels
@@ -89,33 +108,26 @@ async function getRetentionOfficerData(userId) {
     ? Math.round((lowRisk / assignedCustomers) * 100) 
     : 0;
 
-  // Get risk trend data - use both created_at and updated_at for better coverage
-  // Get all months with customer data (last 6 months)
+  // Get risk trend data - optimized query with better date filtering
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
   const riskTrendResult = await pool.query(`
     SELECT 
       DATE_TRUNC('month', COALESCE(updated_at, created_at)) as month,
       COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
       COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-      COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk,
-      COUNT(*) as total
-    FROM customers
-    WHERE assigned_officer_id = $1
-      AND (updated_at >= CURRENT_DATE - INTERVAL '6 months' OR created_at >= CURRENT_DATE - INTERVAL '6 months')
-      AND risk_level IS NOT NULL
-    GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
-    ORDER BY month ASC
-  `, [userId]);
-
-  // Also get current month's latest data (regardless of when updated)
-  const currentMonthData = await pool.query(`
-    SELECT 
-      COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-      COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
       COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
     FROM customers
     WHERE assigned_officer_id = $1
+      AND COALESCE(updated_at, created_at) >= $2
       AND risk_level IS NOT NULL
-  `, [userId]);
+    GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
+    ORDER BY month ASC
+  `, [userId, sixMonthsAgo]).catch((err) => { 
+    console.error('Risk trend query error:', err);
+    return { rows: [] };
+  });
 
   // Generate labels for last 6 months
   const months = [];
@@ -186,57 +198,57 @@ async function getRetentionOfficerData(userId) {
 }
 
 async function getRetentionAnalystData() {
-  // Get total customers
-  const totalCustomersResult = await pool.query('SELECT COUNT(*) as count FROM customers');
+  // Execute queries in parallel for better performance
+  const [
+    totalCustomersResult,
+    churnRateResult,
+    segmentsResult,
+    modelAccuracyResult,
+    segmentPerfResult,
+    riskDistResult
+  ] = await Promise.all([
+    pool.query('SELECT COUNT(*) as count FROM customers').catch(() => ({ rows: [{ count: 0 }] })),
+    pool.query(
+      'SELECT AVG(churn_score) as avg_churn FROM customers WHERE churn_score IS NOT NULL'
+    ).catch(() => ({ rows: [{ avg_churn: 0 }] })),
+    pool.query('SELECT COUNT(*) as count FROM customer_segments').catch(() => ({ rows: [{ count: 0 }] })),
+    pool.query(`
+      SELECT metric_value 
+      FROM model_performance 
+      WHERE metric_name = 'accuracy' 
+      ORDER BY evaluation_date DESC 
+      LIMIT 1
+    `).catch(() => ({ rows: [] })),
+    pool.query(`
+      SELECT 
+        segment,
+        COUNT(*) as customers,
+        AVG(churn_score) as avg_churn_rate
+      FROM customers
+      WHERE segment IS NOT NULL AND churn_score IS NOT NULL
+      GROUP BY segment
+      ORDER BY customers DESC
+    `).catch(() => ({ rows: [] })),
+    pool.query(`
+      SELECT risk_level, COUNT(*) as count
+      FROM customers
+      WHERE risk_level IS NOT NULL
+      GROUP BY risk_level
+    `).catch(() => ({ rows: [] }))
+  ]);
+
   const totalCustomers = parseInt(totalCustomersResult.rows[0]?.count || 0);
-
-  // Get average churn rate
-  const churnRateResult = await pool.query(
-    'SELECT AVG(churn_score) as avg_churn FROM customers WHERE churn_score IS NOT NULL'
-  );
   const avgChurnRate = parseFloat(churnRateResult.rows[0]?.avg_churn || 0);
-
-  // Get segments analyzed (from customer_segments table)
-  const segmentsResult = await pool.query('SELECT COUNT(*) as count FROM customer_segments');
   const segmentsAnalyzed = parseInt(segmentsResult.rows[0]?.count || 0);
-
-  // Get model accuracy from model_performance table
-  const modelAccuracyResult = await pool.query(`
-    SELECT metric_value 
-    FROM model_performance 
-    WHERE metric_name = 'accuracy' 
-    ORDER BY evaluation_date DESC 
-    LIMIT 1
-  `);
   const modelAccuracy = modelAccuracyResult.rows[0] 
     ? parseFloat(modelAccuracyResult.rows[0].metric_value * 100).toFixed(1) 
     : 0;
-
-  // Get segment performance
-  const segmentPerfResult = await pool.query(`
-    SELECT 
-      segment,
-      COUNT(*) as customers,
-      AVG(churn_score) as avg_churn_rate
-    FROM customers
-    WHERE segment IS NOT NULL AND churn_score IS NOT NULL
-    GROUP BY segment
-    ORDER BY customers DESC
-  `);
 
   const segmentPerformance = segmentPerfResult.rows.map(row => ({
     segment: row.segment,
     churnRate: parseFloat(row.avg_churn_rate || 0).toFixed(1),
     customers: parseInt(row.customers || 0)
   }));
-
-  // Get risk distribution
-  const riskDistResult = await pool.query(`
-    SELECT risk_level, COUNT(*) as count
-    FROM customers
-    WHERE risk_level IS NOT NULL
-    GROUP BY risk_level
-  `);
 
   const riskDistribution = riskDistResult.rows.map(row => ({
     label: row.risk_level,
@@ -259,62 +271,88 @@ async function getRetentionAnalystData() {
 }
 
 async function getRetentionManagerData() {
-  // Get ALL customers count (not filtered by assigned officer)
-  const customersResult = await pool.query('SELECT COUNT(*) as count FROM customers');
+  // Execute all queries in parallel for better performance
+  const [
+    customersResult,
+    highRiskResult,
+    teamPerfResult,
+    branchResult,
+    approvalsResult,
+    revenueResult,
+    teamDistResult
+  ] = await Promise.all([
+    pool.query('SELECT COUNT(*) as count FROM customers').catch(() => ({ rows: [{ count: 0 }] })),
+    pool.query(
+      'SELECT COUNT(*) as count FROM customers WHERE risk_level = $1',
+      ['high']
+    ).catch(() => ({ rows: [{ count: 0 }] })),
+    pool.query(`
+      SELECT 
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+        COUNT(*) as total
+      FROM actions
+    `).catch(() => ({ rows: [{ completed: 0, total: 0 }] })),
+    pool.query(
+      'SELECT COUNT(DISTINCT branch) as count FROM customers WHERE branch IS NOT NULL'
+    ).catch(() => ({ rows: [{ count: 0 }] })),
+    pool.query(
+      "SELECT COUNT(*) as count FROM recommendations WHERE status = 'pending'"
+    ).catch(() => ({ rows: [{ count: 0 }] })),
+    pool.query(`
+      SELECT COALESCE(SUM(account_balance), 0) as total_revenue
+      FROM customers
+      WHERE risk_level = 'low' AND account_balance IS NOT NULL
+    `).catch(() => ({ rows: [{ total_revenue: 0 }] })),
+    pool.query(`
+      SELECT role, COUNT(*) as count
+      FROM users
+      WHERE is_active = true
+      GROUP BY role
+    `).catch(() => ({ rows: [] }))
+  ]);
+
   const assignedCustomers = parseInt(customersResult.rows[0]?.count || 0);
-
-  // Get high risk cases (ALL customers)
-  const highRiskResult = await pool.query(
-    'SELECT COUNT(*) as count FROM customers WHERE risk_level = $1',
-    ['high']
-  );
   const highRiskCases = parseInt(highRiskResult.rows[0]?.count || 0);
-
-  // Get team performance (average completion rate)
-  const teamPerfResult = await pool.query(`
-    SELECT 
-      COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
-      COUNT(*) as total
-    FROM actions
-  `);
   const completed = parseInt(teamPerfResult.rows[0]?.completed || 0);
   const total = parseInt(teamPerfResult.rows[0]?.total || 0);
   const teamPerformance = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-  // Get unique branches count
-  const branchResult = await pool.query(
-    'SELECT COUNT(DISTINCT branch) as count FROM customers WHERE branch IS NOT NULL'
-  );
   const branchMetrics = parseInt(branchResult.rows[0]?.count || 0);
-
-  // Get pending approvals (from recommendations table)
-  const approvalsResult = await pool.query(
-    "SELECT COUNT(*) as count FROM recommendations WHERE status = 'pending'"
-  );
   const approvalsPending = parseInt(approvalsResult.rows[0]?.count || 0);
-
-  // Calculate revenue impact (sum of retained customer balances)
-  const revenueResult = await pool.query(`
-    SELECT COALESCE(SUM(account_balance), 0) as total_revenue
-    FROM customers
-    WHERE risk_level = 'low' AND account_balance IS NOT NULL
-  `);
   const revenueImpact = parseFloat(revenueResult.rows[0]?.total_revenue || 0);
 
-  // Get risk trend data for ALL customers (last 6 months)
-  const riskTrendResult = await pool.query(`
-    SELECT 
-      DATE_TRUNC('month', COALESCE(updated_at, created_at)) as month,
-      COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-      COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-      COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk,
-      COUNT(*) as total
-    FROM customers
-    WHERE (updated_at >= CURRENT_DATE - INTERVAL '6 months' OR created_at >= CURRENT_DATE - INTERVAL '6 months')
-      AND risk_level IS NOT NULL
-    GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
-    ORDER BY month ASC
-  `);
+  const teamDistribution = teamDistResult.rows.map(row => ({
+    role: row.role === 'retentionOfficer' ? 'Officers' :
+          row.role === 'retentionAnalyst' ? 'Analysts' :
+          row.role === 'retentionManager' ? 'Managers' : row.role,
+    count: parseInt(row.count || 0)
+  }));
+
+  // Get risk trend data for ALL customers (last 6 months) - optimized
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  const [riskTrendResult, currentMonthData] = await Promise.all([
+    pool.query(`
+      SELECT 
+        DATE_TRUNC('month', COALESCE(updated_at, created_at)) as month,
+        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
+      FROM customers
+      WHERE COALESCE(updated_at, created_at) >= $1
+        AND risk_level IS NOT NULL
+      GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
+      ORDER BY month ASC
+    `, [sixMonthsAgo]).catch(() => ({ rows: [] })),
+    pool.query(`
+      SELECT 
+        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
+      FROM customers
+      WHERE risk_level IS NOT NULL
+    `).catch(() => ({ rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }))
+  ]);
 
   // Generate labels for last 6 months
   const months = [];
@@ -341,16 +379,6 @@ async function getRetentionManagerData() {
     }
   });
 
-  // Get current month data
-  const currentMonthData = await pool.query(`
-    SELECT 
-      COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-      COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-      COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
-    FROM customers
-    WHERE risk_level IS NOT NULL
-  `);
-
   const currentHigh = parseInt(currentMonthData.rows[0]?.high_risk || 0);
   const currentMedium = parseInt(currentMonthData.rows[0]?.medium_risk || 0);
   const currentLow = parseInt(currentMonthData.rows[0]?.low_risk || 0);
@@ -372,20 +400,6 @@ async function getRetentionManagerData() {
     { label: 'Low Risk', value: currentLow, color: '#10b981' }
   ];
 
-  // Get team distribution
-  const teamDistResult = await pool.query(`
-    SELECT role, COUNT(*) as count
-    FROM users
-    WHERE is_active = true
-    GROUP BY role
-  `);
-
-  const teamDistribution = teamDistResult.rows.map(row => ({
-    role: row.role === 'retentionOfficer' ? 'Officers' :
-          row.role === 'retentionAnalyst' ? 'Analysts' :
-          row.role === 'retentionManager' ? 'Managers' : row.role,
-    count: parseInt(row.count || 0)
-  }));
 
   return {
     success: true,
@@ -411,26 +425,39 @@ async function getRetentionManagerData() {
 }
 
 async function getAdminData() {
-  // Get ALL customers count
-  const customersResult = await pool.query('SELECT COUNT(*) as count FROM customers');
+  // Execute all queries in parallel for better performance
+  const [
+    customersResult,
+    highRiskResult,
+    dataQualityResult,
+    userActivityResult,
+    activeUsersResult
+  ] = await Promise.all([
+    pool.query('SELECT COUNT(*) as count FROM customers').catch(() => ({ rows: [{ count: 0 }] })),
+    pool.query(
+      'SELECT COUNT(*) as count FROM customers WHERE risk_level = $1',
+      ['high']
+    ).catch(() => ({ rows: [{ count: 0 }] })),
+    pool.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN churn_score IS NOT NULL THEN 1 END) as with_scores,
+        COUNT(CASE WHEN account_balance IS NOT NULL THEN 1 END) as with_balance
+      FROM customers
+    `).catch(() => ({ rows: [{ total: 0, with_scores: 0, with_balance: 0 }] })),
+    pool.query(`
+      SELECT role, COUNT(*) as active
+      FROM users
+      WHERE is_active = true
+      GROUP BY role
+    `).catch(() => ({ rows: [] })),
+    pool.query(
+      'SELECT COUNT(*) as count FROM users WHERE is_active = true'
+    ).catch(() => ({ rows: [{ count: 0 }] }))
+  ]);
+
   const assignedCustomers = parseInt(customersResult.rows[0]?.count || 0);
-
-  // Get high risk cases (ALL customers)
-  const highRiskResult = await pool.query(
-    'SELECT COUNT(*) as count FROM customers WHERE risk_level = $1',
-    ['high']
-  );
   const highRiskCases = parseInt(highRiskResult.rows[0]?.count || 0);
-
-  // Calculate system health based on various factors
-  // For now, we'll use a simple calculation based on data completeness
-  const dataQualityResult = await pool.query(`
-    SELECT 
-      COUNT(*) as total,
-      COUNT(CASE WHEN churn_score IS NOT NULL THEN 1 END) as with_scores,
-      COUNT(CASE WHEN account_balance IS NOT NULL THEN 1 END) as with_balance
-    FROM customers
-  `);
   const total = parseInt(dataQualityResult.rows[0]?.total || 0);
   const withScores = parseInt(dataQualityResult.rows[0]?.with_scores || 0);
   const withBalance = parseInt(dataQualityResult.rows[0]?.with_balance || 0);
@@ -439,23 +466,39 @@ async function getAdminData() {
     ? Math.round(((withScores + withBalance) / (total * 2)) * 100 * 10) / 10
     : 0;
 
-  // System health is based on data quality and system uptime
-  const systemHealth = Math.min(dataQuality + 1, 99.9); // Add 1% for system uptime assumption
+  const systemHealth = Math.min(dataQuality + 1, 99.9);
+  const activeUsers = parseInt(activeUsersResult.rows[0]?.count || 0);
+  const userActivity = userActivityResult.rows.map(row => ({
+    role: row.role,
+    active: parseInt(row.active || 0)
+  }));
 
-  // Get risk trend data for ALL customers (last 6 months)
-  const riskTrendResult = await pool.query(`
-    SELECT 
-      DATE_TRUNC('month', COALESCE(updated_at, created_at)) as month,
-      COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-      COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-      COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk,
-      COUNT(*) as total
-    FROM customers
-    WHERE (updated_at >= CURRENT_DATE - INTERVAL '6 months' OR created_at >= CURRENT_DATE - INTERVAL '6 months')
-      AND risk_level IS NOT NULL
-    GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
-    ORDER BY month ASC
-  `);
+  // Get risk trend data for ALL customers (last 6 months) - optimized
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  const [riskTrendResult, currentMonthData] = await Promise.all([
+    pool.query(`
+      SELECT 
+        DATE_TRUNC('month', COALESCE(updated_at, created_at)) as month,
+        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
+      FROM customers
+      WHERE COALESCE(updated_at, created_at) >= $1
+        AND risk_level IS NOT NULL
+      GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
+      ORDER BY month ASC
+    `, [sixMonthsAgo]).catch(() => ({ rows: [] })),
+    pool.query(`
+      SELECT 
+        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
+      FROM customers
+      WHERE risk_level IS NOT NULL
+    `).catch(() => ({ rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }))
+  ]);
 
   // Generate labels for last 6 months
   const months = [];
@@ -482,16 +525,6 @@ async function getAdminData() {
     }
   });
 
-  // Get current month data
-  const currentMonthData = await pool.query(`
-    SELECT 
-      COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-      COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-      COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
-    FROM customers
-    WHERE risk_level IS NOT NULL
-  `);
-
   const currentHigh = parseInt(currentMonthData.rows[0]?.high_risk || 0);
   const currentMedium = parseInt(currentMonthData.rows[0]?.medium_risk || 0);
   const currentLow = parseInt(currentMonthData.rows[0]?.low_risk || 0);
@@ -513,28 +546,8 @@ async function getAdminData() {
     { label: 'Low Risk', value: currentLow, color: '#10b981' }
   ];
 
-  // Get active users (users who have logged in recently - last 7 days)
-  // For now, count all active users
-  const activeUsersResult = await pool.query(
-    'SELECT COUNT(*) as count FROM users WHERE is_active = true'
-  );
-  const activeUsers = parseInt(activeUsersResult.rows[0]?.count || 0);
-
   // ETL jobs count (placeholder - would come from job scheduler in production)
   const etlJobs = 12; // Static for now
-
-  // Get user activity by role
-  const userActivityResult = await pool.query(`
-    SELECT role, COUNT(*) as active
-    FROM users
-    WHERE is_active = true
-    GROUP BY role
-  `);
-
-  const userActivity = userActivityResult.rows.map(row => ({
-    role: row.role,
-    active: parseInt(row.active || 0)
-  }));
 
   // Get system performance metrics
   const systemPerformance = {

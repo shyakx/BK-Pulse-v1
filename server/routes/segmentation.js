@@ -9,13 +9,18 @@ function buildCriteriaWhereClause(criteria, paramCount = 1) {
   const params = [];
   let count = paramCount;
 
-  if (criteria.risk_level && criteria.risk_level.length > 0) {
+  // Ensure criteria is an object
+  if (!criteria || typeof criteria !== 'object') {
+    return { whereClause: '', params: [], nextParamCount: count };
+  }
+
+  if (criteria.risk_level && Array.isArray(criteria.risk_level) && criteria.risk_level.length > 0) {
     conditions.push(`risk_level = ANY($${count})`);
     params.push(criteria.risk_level);
     count++;
   }
 
-  if (criteria.segment && criteria.segment.length > 0) {
+  if (criteria.segment && Array.isArray(criteria.segment) && criteria.segment.length > 0) {
     conditions.push(`segment = ANY($${count})`);
     params.push(criteria.segment);
     count++;
@@ -45,13 +50,13 @@ function buildCriteriaWhereClause(criteria, paramCount = 1) {
     count++;
   }
 
-  if (criteria.branch && criteria.branch.length > 0) {
+  if (criteria.branch && Array.isArray(criteria.branch) && criteria.branch.length > 0) {
     conditions.push(`branch = ANY($${count})`);
     params.push(criteria.branch);
     count++;
   }
 
-  if (criteria.product_type && criteria.product_type.length > 0) {
+  if (criteria.product_type && Array.isArray(criteria.product_type) && criteria.product_type.length > 0) {
     conditions.push(`product_type = ANY($${count})`);
     params.push(criteria.product_type);
     count++;
@@ -63,12 +68,30 @@ function buildCriteriaWhereClause(criteria, paramCount = 1) {
 
 // Helper function to calculate customer count for criteria
 async function calculateCustomerCount(criteria) {
+  // Handle null or undefined criteria
+  if (!criteria || typeof criteria !== 'object') {
+    return 0;
+  }
+  
+  // Parse criteria if it's a string
+  if (typeof criteria === 'string') {
+    try {
+      criteria = JSON.parse(criteria);
+    } catch (parseError) {
+      console.error('Error parsing criteria JSON in calculateCustomerCount:', parseError);
+      return 0;
+    }
+  }
+  
   const { whereClause, params } = buildCriteriaWhereClause(criteria);
   const result = await pool.query(
     `SELECT COUNT(*) as count FROM customers ${whereClause}`,
     params
-  );
-  return parseInt(result.rows[0].count) || 0;
+  ).catch(err => {
+    console.error('Error in calculateCustomerCount query:', err);
+    throw err;
+  });
+  return parseInt(result.rows[0]?.count || 0);
 }
 
 // @route   GET /api/segmentation
@@ -76,31 +99,65 @@ async function calculateCustomerCount(criteria) {
 // @access  Private (Analyst, Manager, Admin)
 router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
+    // Check if tables exist first
+    try {
+      await pool.query('SELECT 1 FROM customer_segments LIMIT 1');
+    } catch (tableError) {
+      // Table doesn't exist, return empty array
+      return res.json({
+        success: true,
+        segments: []
+      });
+    }
+
     const query = `
       SELECT 
-        cs.*,
+        cs.id,
+        cs.name,
+        cs.description,
+        cs.criteria,
+        cs.customer_count,
+        cs.created_by,
+        cs.created_at,
+        cs.updated_at,
         u.name as created_by_name,
         COUNT(DISTINCT sc.customer_id) as actual_customer_count
       FROM customer_segments cs
       LEFT JOIN users u ON cs.created_by = u.id
       LEFT JOIN segment_customers sc ON cs.id = sc.segment_id
-      GROUP BY cs.id, u.name
+      GROUP BY cs.id, cs.name, cs.description, cs.criteria, cs.customer_count, cs.created_by, cs.created_at, cs.updated_at, u.name
       ORDER BY cs.created_at DESC
     `;
 
-    const result = await pool.query(query);
+    const result = await pool.query(query).catch(err => {
+      console.error('Query error:', err);
+      throw err;
+    });
 
-    const segments = result.rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      criteria: row.criteria,
-      customer_count: row.actual_customer_count || row.customer_count || 0,
-      created_by: row.created_by,
-      created_by_name: row.created_by_name,
-      created_at: row.created_at,
-      updated_at: row.updated_at
-    }));
+    const segments = result.rows.map(row => {
+      // Parse criteria if it's a string
+      let criteria = row.criteria;
+      if (typeof criteria === 'string') {
+        try {
+          criteria = JSON.parse(criteria);
+        } catch (parseError) {
+          console.error('Error parsing criteria JSON:', parseError);
+          criteria = {};
+        }
+      }
+
+      return {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        criteria: criteria,
+        customer_count: row.actual_customer_count || row.customer_count || 0,
+        created_by: row.created_by,
+        created_by_name: row.created_by_name,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      };
+    });
 
     res.json({
       success: true,
@@ -141,10 +198,22 @@ router.get('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentio
     }
 
     const segment = segmentResult.rows[0];
-    const criteria = segment.criteria;
+    // Parse criteria if it's a string
+    let criteria = segment.criteria;
+    if (typeof criteria === 'string') {
+      try {
+        criteria = JSON.parse(criteria);
+      } catch (parseError) {
+        console.error('Error parsing criteria JSON:', parseError);
+        criteria = {};
+      }
+    }
 
     // Calculate current customer count based on criteria
-    const customerCount = await calculateCustomerCount(criteria);
+    const customerCount = await calculateCustomerCount(criteria).catch(err => {
+      console.error('Error calculating customer count:', err);
+      return 0;
+    });
 
     const segmentData = {
       id: segment.id,
@@ -160,31 +229,48 @@ router.get('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentio
 
     // Optionally include customers matching the criteria
     if (include_customers === 'true') {
-      const offset = (page - 1) * limit;
-      const { whereClause, params } = buildCriteriaWhereClause(criteria, 1);
-      
-      const customersResult = await pool.query(
-        `SELECT c.*, u.name as assigned_officer_name
-         FROM customers c
-         LEFT JOIN users u ON c.assigned_officer_id = u.id
-         ${whereClause}
-         ORDER BY c.churn_score DESC, c.name ASC
-         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-        [...params, limit, offset]
-      );
+      try {
+        const offset = (page - 1) * limit;
+        const { whereClause, params } = buildCriteriaWhereClause(criteria, 1);
+        
+        const customersResult = await pool.query(
+          `SELECT c.*, u.name as assigned_officer_name
+           FROM customers c
+           LEFT JOIN users u ON c.assigned_officer_id = u.id
+           ${whereClause}
+           ORDER BY c.churn_score DESC, c.name ASC
+           LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+          [...params, limit, offset]
+        ).catch(err => {
+          console.error('Error fetching customers for segment:', err);
+          return { rows: [] };
+        });
 
-      const totalResult = await pool.query(
-        `SELECT COUNT(*) as total FROM customers ${whereClause}`,
-        params
-      );
+        const totalResult = await pool.query(
+          `SELECT COUNT(*) as total FROM customers ${whereClause}`,
+          params
+        ).catch(err => {
+          console.error('Error counting customers for segment:', err);
+          return { rows: [{ total: 0 }] };
+        });
 
-      segmentData.customers = customersResult.rows;
-      segmentData.pagination = {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: parseInt(totalResult.rows[0].total),
-        pages: Math.ceil(parseInt(totalResult.rows[0].total) / limit)
-      };
+        segmentData.customers = customersResult.rows || [];
+        segmentData.pagination = {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: parseInt(totalResult.rows[0]?.total || 0),
+          pages: Math.ceil(parseInt(totalResult.rows[0]?.total || 0) / limit)
+        };
+      } catch (err) {
+        console.error('Error including customers in segment:', err);
+        segmentData.customers = [];
+        segmentData.pagination = {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: 0,
+          pages: 0
+        };
+      }
     }
 
     res.json({

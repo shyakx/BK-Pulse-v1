@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import api from '../services/api';
 
 const AuthContext = createContext();
 
@@ -73,18 +74,21 @@ export const AuthProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const response = await axios.get(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/auth/me`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          dispatch({
-            type: 'LOGIN_SUCCESS',
-            payload: {
-              user: response.data.user,
-              token: token
-            }
-          });
+          const response = await api.getMe();
+          if (response.user) {
+            dispatch({
+              type: 'LOGIN_SUCCESS',
+              payload: {
+                user: response.user,
+                token: token
+              }
+            });
+          } else {
+            throw new Error('Invalid user data');
+          }
         } catch (error) {
           localStorage.removeItem('token');
+          localStorage.removeItem('user');
           dispatch({ type: 'LOGOUT' });
         }
       }
@@ -95,22 +99,21 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     dispatch({ type: 'LOGIN_START' });
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/auth/login`, {
-        email,
-        password
-      });
+      const response = await api.login(email, password);
       
-      const { user, token } = response.data;
-      
-      localStorage.setItem('token', token);
-      dispatch({
-        type: 'LOGIN_SUCCESS',
-        payload: { user, token }
-      });
-      
-      return { success: true };
+      if (response.user && response.token) {
+        localStorage.setItem('token', response.token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          payload: { user: response.user, token: response.token }
+        });
+        return { success: true };
+      } else {
+        throw new Error(response.message || 'Login failed - invalid response');
+      }
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Login failed';
+      const errorMessage = error?.message || error?.response?.data?.message || 'Login failed. Please check your credentials.';
       dispatch({
         type: 'LOGIN_FAILURE',
         payload: errorMessage

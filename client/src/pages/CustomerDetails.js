@@ -559,12 +559,12 @@ const CustomerDetails = () => {
               {recommendations && recommendations.length > 0 ? (
                 <div>
                   {recommendations.map((rec, index) => (
-                    <div key={index} className="mb-3 p-3 border rounded">
+                    <div key={index} className="mb-4 p-3 border rounded" style={{ backgroundColor: '#f8f9fa' }}>
                       <div className="d-flex justify-content-between align-items-start mb-2">
                         <div className="flex-grow-1">
-                          <div className="d-flex align-items-center gap-2 mb-1">
-                            <input type="checkbox" className="form-check-input" />
-                            <span className="fw-bold">{rec.action}</span>
+                          <div className="d-flex align-items-center mb-2 flex-wrap" style={{ gap: '0.5rem' }}>
+                            <input type="checkbox" className="form-check-input mt-0" />
+                            <h6 className="mb-0 fw-bold">{rec.action}</h6>
                             <span className={`badge ${
                               rec.priority === 'high' ? 'bg-danger' : 
                               rec.priority === 'medium' ? 'bg-warning' : 'bg-info'
@@ -574,10 +574,65 @@ const CustomerDetails = () => {
                             <span className="badge bg-secondary">
                               {rec.confidence}% confidence
                             </span>
+                            {rec.timeline && (
+                              <span className="badge bg-primary">
+                                {rec.timeline}
+                              </span>
+                            )}
                           </div>
-                          <p className="text-muted small mb-0 ms-4">
-                            <em>{rec.reason}</em>
-                          </p>
+                          
+                          {rec.description && (
+                            <p className="text-dark mb-2">
+                              {rec.description}
+                            </p>
+                          )}
+                          
+                          <div className="mb-2">
+                            <strong className="text-muted small">Reason:</strong>
+                            <p className="text-muted small mb-1 ms-2 d-inline">
+                              {rec.reason}
+                            </p>
+                          </div>
+
+                          {rec.expectedOutcome && (
+                            <div className="mb-2">
+                              <strong className="text-muted small">Expected Outcome:</strong>
+                              <p className="text-success small mb-1 ms-2 d-inline">
+                                {rec.expectedOutcome}
+                              </p>
+                            </div>
+                          )}
+
+                          {rec.estimatedImpact && (
+                            <div className="mb-2">
+                              <strong className="text-muted small">Estimated Impact:</strong>
+                              <span className="badge bg-success ms-2">
+                                {rec.estimatedImpact}
+                              </span>
+                            </div>
+                          )}
+
+                          {rec.estimatedCost && (
+                            <div className="mb-2">
+                              <strong className="text-muted small">Estimated Cost:</strong>
+                              <span className="text-info small ms-2">
+                                {rec.estimatedCost}
+                              </span>
+                            </div>
+                          )}
+
+                          {rec.implementationSteps && rec.implementationSteps.length > 0 && (
+                            <div className="mt-3">
+                              <strong className="text-muted small d-block mb-2">Implementation Steps:</strong>
+                              <ol className="small mb-0" style={{ paddingLeft: '1.5rem' }}>
+                                {rec.implementationSteps.map((step, stepIndex) => (
+                                  <li key={stepIndex} className="mb-1 text-muted">
+                                    {step}
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

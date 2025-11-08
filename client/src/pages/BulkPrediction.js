@@ -11,10 +11,14 @@ const BulkPrediction = () => {
   const handleRunPrediction = async () => {
     try {
       setProcessing(true);
+      setResults(null);
       
-      // Call real API
+      // Use smaller limit to avoid timeouts (batch predictions can take time)
+      const limit = segmentType === 'all' ? 100 : 50; // Reduced to avoid timeouts
+      
+      // Call real API with longer timeout
       const response = await api.batchPredict({ 
-        limit: segmentType === 'all' ? 1000 : 100 
+        limit: limit 
       });
       
       if (!response.success) {
@@ -63,7 +67,18 @@ const BulkPrediction = () => {
       });
     } catch (err) {
       console.error('Prediction error:', err);
-      alert('Failed to run prediction: ' + err.message);
+      let errorMessage = err.message || 'Failed to run prediction';
+      
+      // Handle timeout specifically
+      if (err.isTimeout || errorMessage.includes('timeout')) {
+        errorMessage = 'Prediction request timed out. Batch predictions can take several minutes. Try reducing the number of customers or check back later.';
+      }
+      
+      alert(errorMessage);
+      setResults({
+        error: errorMessage,
+        totalAnalyzed: 0
+      });
     } finally {
       setProcessing(false);
     }
@@ -163,18 +178,27 @@ const BulkPrediction = () => {
               <div
                 className="progress-bar progress-bar-striped progress-bar-animated"
                 role="progressbar"
-                style={{ width: '75%' }}
+                style={{ width: '100%' }}
               >
-                75%
+                Processing...
               </div>
             </div>
-            <p className="text-center mb-0">Processing predictions... Please wait.</p>
+            <p className="text-center mb-0">
+              <strong>Processing predictions...</strong> This may take several minutes. Please do not close this page.
+            </p>
           </div>
         </div>
       )}
 
+      {/* Error Message */}
+      {results && results.error && (
+        <div className="alert alert-danger">
+          <strong>Error:</strong> {results.error}
+        </div>
+      )}
+
       {/* Results */}
-      {results && (
+      {results && !results.error && (
         <>
           {/* Results Summary */}
           <div className="row mb-4">
@@ -281,4 +305,5 @@ const BulkPrediction = () => {
 };
 
 export default BulkPrediction;
+
 

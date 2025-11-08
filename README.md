@@ -2,11 +2,13 @@
 
 A comprehensive churn intelligence platform built for Bank of Kigali, featuring role-based access control and advanced analytics capabilities.
 
+🌐 **Live Demo**: [https://bk-pulse-v2.vercel.app](https://bk-pulse-v2.vercel.app)
+
 ## 🏦 Overview
 
 BK Pulse is a sophisticated platform designed to help Bank of Kigali identify, analyze, and prevent customer churn through data-driven insights and targeted retention strategies.
 
-# Video presentations
+## 📹 Video Presentations
 
 https://youtu.be/8eXAD5smTxo
 
@@ -242,9 +244,14 @@ Login using the credentials provided in the "Default Login Credentials" section 
 
 ## 🌐 Live Deployment
 
-**Application URL:** [https://bk-pulse-v2.vercel.app](https://bk-pulse-v2.vercel.app)
+**🚀 Application URL:** [https://bk-pulse-v2.vercel.app](https://bk-pulse-v2.vercel.app)
 
 The application is deployed and accessible online. You can test all features using the credentials below.
+
+**Tech Stack:**
+- **Frontend**: Vercel (React)
+- **Backend**: Render (Node.js/Express)
+- **Database**: Render PostgreSQL
 
 ## 🔐 Default Login Credentials
 
@@ -398,17 +405,23 @@ See `ml/README.md` for detailed documentation on the ML pipeline.
 - **[USER_GUIDE.md](USER_GUIDE.md)** - Complete user guide and feature documentation
 - **[PREDICTION_FEATURES.md](PREDICTION_FEATURES.md)** - ML prediction features and usage
 
-### Deployment & Hosting
-- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Complete deployment instructions for local and production
-- **[VERCEL_SUPABASE_SETUP.md](VERCEL_SUPABASE_SETUP.md)** - Best performance combo: Vercel frontend + Supabase database ⭐
-- **[HOSTING_GUIDE.md](HOSTING_GUIDE.md)** - Detailed guide for hosting on cloud platforms (Railway, Fly.io, Render, Vercel)
-- **[HOSTING_QUICK_START.md](HOSTING_QUICK_START.md)** - 5-minute quick setup for Render
-
 ### Technical Documentation
 - **[docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)** - PostgreSQL database setup and configuration
 - **[docs/PGADMIN_SETUP_GUIDE.md](docs/PGADMIN_SETUP_GUIDE.md)** - pgAdmin setup and usage
+- **[docs/POSTGRESQL_TROUBLESHOOTING.md](docs/POSTGRESQL_TROUBLESHOOTING.md)** - PostgreSQL troubleshooting guide
 - **[ml/README.md](ml/README.md)** - Machine Learning pipeline documentation
 - **[ml/PREDICTION_API.md](ml/PREDICTION_API.md)** - ML prediction API reference
+
+### Utility Scripts
+Available in `server/scripts/`:
+- `updateChurnScores.js` - Update customer churn scores using ML model
+- `addCustomersBatch.js` - Add customers in batches to the database
+- `generateCustomers.js` - Generate customer data for seeding
+- `seedRetentionNotes.js` - Seed retention notes data
+- `createEnv.js` - Interactive .env file creator
+
+### Performance
+- **[PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md)** - Performance improvements and optimization guide
 
 ## 🚀 Deployment
 
@@ -426,17 +439,16 @@ npm start
 
 ### Cloud Hosting
 
-For hosting on cloud platforms (all free options):
-- **[HOSTING_QUICK_START.md](HOSTING_QUICK_START.md)** - Quick setup (recommended: Railway or Fly.io)
-- **[HOSTING_GUIDE.md](HOSTING_GUIDE.md)** - Detailed hosting instructions for Railway, Fly.io, Render, and Vercel
+The application is currently hosted on:
+- **Frontend**: Vercel (https://bk-pulse-v2.vercel.app)
+- **Backend**: Render (Node.js/Express API)
+- **Database**: Render PostgreSQL
 
-**Recommended Free Platforms:**
-1. **Vercel + Supabase** ⭐⭐⭐ - Best performance (Vercel frontend + Supabase database)
-2. **Railway** ⭐⭐ - $5 free credit/month, always-on, easiest full-stack setup
-3. **Fly.io** ⭐⭐ - Always-on, no credit card required
-4. **Render** ⭐ - Free but services sleep after inactivity
-
-**See `VERCEL_SUPABASE_SETUP.md` for the Vercel + Supabase combo setup guide!**
+**Free hosting platforms that work well:**
+- **Vercel** - Excellent for React frontends (automatic deployments from GitHub)
+- **Render** - Good for Node.js backends and PostgreSQL databases
+- **Railway** - Easy full-stack deployment
+- **Fly.io** - Always-on services, no credit card required
 
 ### Environment Variables
 

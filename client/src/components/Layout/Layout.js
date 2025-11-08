@@ -20,8 +20,8 @@ const Layout = () => {
       <div 
         className="main-content flex-grow-1"
         style={{ 
-          marginLeft: sidebarCollapsed ? '60px' : '280px',
-          transition: 'margin-left 0.3s ease'
+          marginLeft: sidebarCollapsed ? '72px' : '280px',
+          transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         }}
       >
         <Navbar 
@@ -29,7 +29,7 @@ const Layout = () => {
           isCollapsed={sidebarCollapsed}
         />
         
-        <main className="p-4">
+        <main className="p-3">
           <Outlet />
         </main>
       </div>

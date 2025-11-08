@@ -190,9 +190,9 @@ const Customers = () => {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h2 className="fw-bold mb-1">Customer Management</h2>
+          <h2 className="fw-bold mb-1">Customer 360 Profile</h2>
           <p className="text-muted mb-0">
-            Manage and monitor your assigned customers
+            Deep dive into single customer data. Investigate why a particular customer is at risk before outreach.
           </p>
         </div>
         <div className="d-flex gap-2">

@@ -29,8 +29,8 @@ const AdminData = () => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 className="fw-bold mb-1">Data & ETL Management</h2>
-          <p className="text-muted mb-0">Monitor and manage ETL pipelines, data sources, and schedules</p>
+          <h2 className="fw-bold mb-1">Data Management</h2>
+          <p className="text-muted mb-0">Data quality and access. Check data refresh, fix source errors, or audit model changes.</p>
         </div>
         <button className="btn btn-primary" onClick={fetchDataInfo}>
           <MdRefresh className="me-2" />
@@ -54,9 +54,9 @@ const AdminData = () => {
                 Data Sources
               </h5>
             </div>
-            <div className="card-body">
+            <div className="card-body p-0">
               <div className="table-responsive">
-                <table className="table table-hover">
+                <table className="table table-hover table-sm">
                   <thead>
                     <tr>
                       <th>Source</th>
@@ -96,9 +96,9 @@ const AdminData = () => {
                 Database Table Sizes
               </h5>
             </div>
-            <div className="card-body">
+            <div className="card-body p-0">
               <div className="table-responsive">
-                <table className="table table-hover">
+                <table className="table table-hover table-sm">
                   <thead>
                     <tr>
                       <th>Table Name</th>

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { MdAdd, MdEdit, MdPause, MdMoreVert } from 'react-icons/md';
+import { MdAdd, MdEdit, MdPause, MdMoreVert, MdTrendingUp, MdAccountBalance, MdBarChart, MdLightbulb, MdPeople, MdCheckCircle, MdTimeline } from 'react-icons/md';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
 const CampaignManagement = () => {
+  const { user } = useAuth();
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
+  const [campaignInsights, setCampaignInsights] = useState(null);
   const [wizardStep, setWizardStep] = useState(1);
   const [error, setError] = useState(null);
   const [campaignForm, setCampaignForm] = useState({
@@ -54,6 +57,25 @@ const CampaignManagement = () => {
           created_by_name: campaign.created_by_name
         }));
         setCampaigns(formattedCampaigns);
+        
+        // Calculate campaign insights
+        const activeCampaigns = formattedCampaigns.filter(c => c.status === 'active' || c.status === 'Active');
+        const totalCustomersTargeted = formattedCampaigns.reduce((sum, c) => sum + (c.customer_count || 0), 0);
+        const totalContacted = formattedCampaigns.reduce((sum, c) => sum + (c.contacted || 0), 0);
+        const totalRetained = formattedCampaigns.reduce((sum, c) => sum + (c.retained || 0), 0);
+        const avgContactRate = totalCustomersTargeted > 0 ? (totalContacted / totalCustomersTargeted) * 100 : 0;
+        const avgRetentionRate = totalContacted > 0 ? (totalRetained / totalContacted) * 100 : 0;
+        
+        // Store insights for display
+        setCampaignInsights({
+          totalCampaigns: formattedCampaigns.length,
+          activeCampaigns: activeCampaigns.length,
+          totalCustomersTargeted,
+          totalContacted,
+          totalRetained,
+          avgContactRate,
+          avgRetentionRate
+        });
       } else {
         throw new Error(response.message || 'Failed to fetch campaigns');
       }
@@ -147,14 +169,116 @@ const CampaignManagement = () => {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h2 className="fw-bold mb-1">Campaign Management</h2>
-          <p className="text-muted mb-0">Design and execute retention campaigns</p>
+          <h2 className="fw-bold mb-1">Campaign Tracking</h2>
+          <p className="text-muted mb-0">Measure impact of retention campaigns. Prove ROI of past retention actions and refine new strategies.</p>
         </div>
+        {['retentionAnalyst', 'retentionManager', 'admin'].includes(user?.role) && (
         <button className="btn btn-primary" onClick={() => setShowWizard(true)}>
           <MdAdd className="me-2" />
           Create Campaign
         </button>
+        )}
       </div>
+
+      {/* Campaign Performance Insights */}
+      {campaigns.length > 0 && campaignInsights && (
+        <div className="row mb-4">
+          <div className="col-12">
+            <div className="card border-success">
+              <div className="card-header bg-success text-white">
+                <h5 className="mb-0">
+                  <MdBarChart className="me-2" />
+                  Campaign Performance Overview & ROI Insights
+                </h5>
+              </div>
+              <div className="card-body">
+                <div className="row mb-4">
+                  <div className="col-md-3 mb-3">
+                    <div className="card border-primary">
+                      <div className="card-body text-center">
+                        <MdPeople className="text-primary mb-2" style={{ fontSize: '2rem' }} />
+                        <h4>{campaignInsights.totalCampaigns}</h4>
+                        <p className="text-muted small mb-0">Total Campaigns</p>
+                        <small className="text-muted">
+                          {campaignInsights.activeCampaigns} active
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-3 mb-3">
+                    <div className="card border-info">
+                      <div className="card-body text-center">
+                        <MdTrendingUp className="text-info mb-2" style={{ fontSize: '2rem' }} />
+                        <h4>{campaignInsights.totalCustomersTargeted.toLocaleString()}</h4>
+                        <p className="text-muted small mb-0">Customers Targeted</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-3 mb-3">
+                    <div className="card border-warning">
+                      <div className="card-body text-center">
+                        <MdCheckCircle className="text-warning mb-2" style={{ fontSize: '2rem' }} />
+                        <h4>{campaignInsights.avgContactRate.toFixed(1)}%</h4>
+                        <p className="text-muted small mb-0">Avg Contact Rate</p>
+                        <small className="text-muted">
+                          {campaignInsights.totalContacted.toLocaleString()} contacted
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-md-3 mb-3">
+                    <div className="card border-success">
+                      <div className="card-body text-center">
+                        <MdAccountBalance className="text-success mb-2" style={{ fontSize: '2rem' }} />
+                        <h4>{campaignInsights.avgRetentionRate.toFixed(1)}%</h4>
+                        <p className="text-muted small mb-0">Avg Retention Rate</p>
+                        <small className="text-muted">
+                          {campaignInsights.totalRetained.toLocaleString()} retained
+                        </small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actionable Insights */}
+                <div className="alert alert-info mb-0">
+                  <h6 className="mb-2">
+                    <MdLightbulb className="me-2" />
+                    Key Insights
+                  </h6>
+                  <ul className="mb-0">
+                    {campaignInsights.avgContactRate < 50 && (
+                      <li>
+                        <strong>Contact Rate Opportunity:</strong> Average contact rate is {campaignInsights.avgContactRate.toFixed(1)}%. 
+                        Consider improving outreach strategies to increase customer engagement.
+                      </li>
+                    )}
+                    {campaignInsights.avgRetentionRate > 0 && (
+                      <li>
+                        <strong>Retention Success:</strong> {campaignInsights.totalRetained.toLocaleString()} customers 
+                        ({campaignInsights.avgRetentionRate.toFixed(1)}% retention rate) have been retained through campaigns, 
+                        demonstrating the effectiveness of targeted retention efforts.
+                      </li>
+                    )}
+                    {campaignInsights.activeCampaigns > 0 && (
+                      <li>
+                        <strong>Active Campaigns:</strong> {campaignInsights.activeCampaigns} active campaigns are currently 
+                        running. Monitor their performance regularly to optimize ROI.
+                      </li>
+                    )}
+                    {campaignInsights.totalCustomersTargeted > 0 && (
+                      <li>
+                        <strong>Scale:</strong> Campaigns have targeted {campaignInsights.totalCustomersTargeted.toLocaleString()} 
+                        customers total. Use performance data to refine targeting and improve future campaign effectiveness.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Active Campaigns */}
       <div className="card mb-4">

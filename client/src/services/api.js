@@ -7,12 +7,13 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Create axios instance
+// Create axios instance with timeout
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 30000, // 30 second timeout
 });
 
 // Add request interceptor to include auth token
@@ -33,6 +34,20 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    // Handle timeout errors
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+      const timeoutError = new Error('Request timeout. Please check your connection and try again.');
+      timeoutError.isTimeout = true;
+      return Promise.reject(timeoutError);
+    }
+    
+    // Handle network errors
+    if (!error.response) {
+      const networkError = new Error('Network error. Please check your connection.');
+      networkError.isNetworkError = true;
+      return Promise.reject(networkError);
+    }
+    
     if (error.response?.status === 401 || error.response?.status === 403) {
       // Unauthorized/Forbidden - clear token and redirect to login
       // Only redirect if not already on login page
@@ -89,7 +104,29 @@ export const api = {
   },
 
   batchPredict: (options = {}) => {
-    return apiClient.post('/predictions/batch', options);
+    // Create a separate axios instance with longer timeout for batch operations
+    const token = localStorage.getItem('token');
+    return axios.post(`${API_BASE_URL}/predictions/batch`, options, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
+      timeout: 300000, // 5 minutes for batch predictions
+    }).then(response => response.data).catch(error => {
+      // Handle timeout errors
+      if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+        const timeoutError = new Error('Request timeout. Please check your connection and try again.');
+        timeoutError.isTimeout = true;
+        return Promise.reject(timeoutError);
+      }
+      // Handle network errors
+      if (!error.response) {
+        const networkError = new Error('Network error. Please check your connection.');
+        networkError.isNetworkError = true;
+        return Promise.reject(networkError);
+      }
+      return Promise.reject(error.response?.data || error.message);
+    });
   },
 
   getModelInfo: () => {
@@ -105,6 +142,10 @@ export const api = {
     return apiClient.post('/retention-notes', noteData);
   },
 
+  updateRetentionNote: (id, noteData) => {
+    return apiClient.patch(`/retention-notes/${id}`, noteData);
+  },
+
   // Tasks
   getTasks: (params = {}) => {
     return apiClient.get('/tasks', { params });
@@ -114,8 +155,25 @@ export const api = {
     return apiClient.post('/tasks', taskData);
   },
 
+  // Assignments
+  getMyAssignedCustomers: (params = {}) => {
+    return apiClient.get('/assignments/my-assigned', { params });
+  },
+
+  removeAssignment: (customerId) => {
+    return apiClient.delete(`/assignments/${customerId}`);
+  },
+
   completeTask: (taskId) => {
     return apiClient.patch(`/tasks/${taskId}/complete`);
+  },
+
+  updateTask: (taskId, taskData) => {
+    return apiClient.patch(`/tasks/${taskId}`, taskData);
+  },
+
+  deleteTask: (taskId) => {
+    return apiClient.delete(`/tasks/${taskId}`);
   },
 
   // Performance

@@ -5,8 +5,8 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 
 // @route   GET /api/recommendations
 // @desc    Get all recommendations with filters
-// @access  Private (Analyst, Manager, Admin)
-router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+// @access  Private (Officer, Analyst, Manager, Admin)
+router.get('/', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
     const { 
       page = 1, 

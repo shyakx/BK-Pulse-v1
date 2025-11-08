@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { MdRefresh, MdWarning } from 'react-icons/md';
 
 const ModelInsights = () => {
+  const location = useLocation();
   const [modelMetrics, setModelMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const isExplainabilityPage = location.pathname.includes('/explainability');
 
   useEffect(() => {
     fetchModelMetrics();
@@ -27,12 +30,7 @@ const ModelInsights = () => {
           aucRoc: model.metrics?.roc_auc ? (model.metrics.roc_auc * 100) : 0,
           lastTrainingDate: model.performance_history?.[0]?.evaluation_date || new Date().toISOString(),
           modelVersion: model.version || 'unknown',
-          featureImportance: [
-            // TODO: Extract from model if available
-            { feature: 'Account Balance', importance: 0.245 },
-            { feature: 'Transaction Frequency', importance: 0.198 },
-            { feature: 'Days Since Last Transaction', importance: 0.156 }
-          ]
+          featureImportance: model.feature_importance || model.featureImportance || []
         });
       } else {
         throw new Error('Failed to fetch model information');
@@ -70,8 +68,16 @@ const ModelInsights = () => {
       {/* Header */}
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
-          <h2 className="fw-bold mb-1">Model Performance</h2>
-          <p className="text-muted mb-0">Monitor ML model health, metrics, and feature importance over time</p>
+          <h2 className="fw-bold mb-1">
+            {isExplainabilityPage 
+              ? 'Explainability & Compliance' 
+              : 'Model Performance Dashboard'}
+          </h2>
+          <p className="text-muted mb-0">
+            {isExplainabilityPage
+              ? 'Understand why the model made a prediction. Ensure decisions are fair, auditable, and regulator-friendly.'
+              : 'Track model health and accuracy. Ensure predictions remain reliable; alert if performance drops.'}
+          </p>
         </div>
         <button className="btn btn-outline-primary" onClick={fetchModelMetrics}>
           <MdRefresh className="me-2" />
@@ -205,18 +211,19 @@ const ModelInsights = () => {
       </div>
 
       {/* Alerts */}
-      <div className="card">
-        <div className="card-header">
-          <h5 className="mb-0">Model Alerts</h5>
-        </div>
-        <div className="card-body">
-          <div className="alert alert-warning">
-            <MdWarning className="me-2" />
-            <strong>Model Drift Detected:</strong> Performance has decreased by 2.3% in the last 30 days. Consider retraining.
-            <button className="btn btn-sm btn-warning ms-3">Request Retraining</button>
+      {modelMetrics?.featureImportance && modelMetrics.featureImportance.length === 0 && (
+        <div className="card">
+          <div className="card-header">
+            <h5 className="mb-0">Model Alerts</h5>
+          </div>
+          <div className="card-body">
+            <div className="alert alert-info">
+              <MdWarning className="me-2" />
+              <strong>Note:</strong> Feature importance data is not available. This may require model retraining or feature extraction.
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

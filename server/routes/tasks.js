@@ -23,6 +23,13 @@ router.get('/', authenticateToken, async (req, res) => {
         a.*,
         c.customer_id as customer_customer_id,
         c.name as customer_name,
+        c.email as customer_email,
+        c.segment as customer_segment,
+        c.branch as customer_branch,
+        c.churn_score as customer_churn_score,
+        c.risk_level as customer_risk_level,
+        c.account_balance as customer_account_balance,
+        c.product_type as customer_product_type,
         u.name as officer_name
       FROM actions a
       LEFT JOIN customers c ON a.customer_id = c.id
@@ -63,10 +70,50 @@ router.get('/', authenticateToken, async (req, res) => {
       params.push(`%${search}%`);
     }
 
-    // Count total
-    const countQuery = query.replace('SELECT a.*, c.customer_id as customer_customer_id, c.name as customer_name, u.name as officer_name', 'SELECT COUNT(*)');
-    const countResult = await pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
+    // Count total - build count query separately to avoid string replacement issues
+    let countQuery = `
+      SELECT COUNT(*) as count
+      FROM actions a
+      LEFT JOIN customers c ON a.customer_id = c.id
+      LEFT JOIN users u ON a.officer_id = u.id
+      WHERE 1=1
+    `;
+    const countParams = [];
+    let countParamCount = 0;
+
+    // Apply same filters for count query
+    if (req.user.role === 'retentionOfficer') {
+      countParamCount++;
+      countQuery += ` AND a.officer_id = $${countParamCount}`;
+      countParams.push(req.user.id);
+    }
+
+    if (customer_id) {
+      countParamCount++;
+      countQuery += ` AND (a.customer_id = $${countParamCount} OR c.customer_id = $${countParamCount})`;
+      countParams.push(customer_id);
+    }
+
+    if (status) {
+      countParamCount++;
+      countQuery += ` AND a.status = $${countParamCount}`;
+      countParams.push(status);
+    }
+
+    if (priority) {
+      countParamCount++;
+      countQuery += ` AND a.priority = $${countParamCount}`;
+      countParams.push(priority);
+    }
+
+    if (search) {
+      countParamCount++;
+      countQuery += ` AND (a.description ILIKE $${countParamCount} OR a.action_type ILIKE $${countParamCount} OR c.name ILIKE $${countParamCount})`;
+      countParams.push(`%${search}%`);
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
+    const total = parseInt(countResult.rows[0]?.count || 0);
 
     // Get paginated results
     paramCount++;
@@ -89,6 +136,13 @@ router.get('/', authenticateToken, async (req, res) => {
       customer_id: row.customer_id,
       customer_customer_id: row.customer_customer_id,
       customer_name: row.customer_name,
+      customer_email: row.customer_email,
+      customer_segment: row.customer_segment,
+      customer_branch: row.customer_branch,
+      customer_churn_score: row.customer_churn_score,
+      customer_risk_level: row.customer_risk_level,
+      customer_account_balance: row.customer_account_balance,
+      customer_product_type: row.customer_product_type,
       officer_id: row.officer_id,
       officer_name: row.officer_name,
       action_type: row.action_type,
@@ -231,12 +285,51 @@ router.post('/', authenticateToken, async (req, res) => {
     // Default officer_id to current user if not specified
     const officerId = req.body.officer_id || req.user.id;
 
+    // Get customer details to determine priority if not provided
+    let finalPriority = priority;
+    let finalDueDate = due_date;
+    if (customerDbId) {
+      const customerResult = await pool.query(
+        'SELECT churn_score, risk_level FROM customers WHERE id = $1',
+        [customerDbId]
+      );
+      if (customerResult.rows.length > 0) {
+        const customer = customerResult.rows[0];
+        // Set priority based on churn_score if not provided
+        if (!priority || priority === 'medium') {
+          if (customer.churn_score >= 70 || customer.risk_level === 'high') {
+            finalPriority = 'high';
+          } else if (customer.churn_score >= 50 || customer.risk_level === 'medium') {
+            finalPriority = 'medium';
+          } else {
+            finalPriority = 'low';
+          }
+        }
+        // Set default due_date to 3 days from now if not provided
+        if (!due_date) {
+          const defaultDueDate = new Date();
+          defaultDueDate.setDate(defaultDueDate.getDate() + 3);
+          finalDueDate = defaultDueDate.toISOString().split('T')[0];
+        }
+      }
+    }
+
     const result = await pool.query(
       `INSERT INTO actions (customer_id, officer_id, action_type, description, status, priority, due_date)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [customerDbId, officerId, action_type, description, status, priority, due_date || null]
+      [customerDbId, officerId, action_type, description || `Task for customer ${customerDbId}`, status, finalPriority, finalDueDate || null]
     );
+
+    // Remove assignment if it exists (for Analysis page workflow)
+    if (customerDbId && req.user.role === 'retentionOfficer') {
+      await pool.query(
+        `UPDATE customer_assignments 
+         SET is_active = false 
+         WHERE customer_id = $1 AND officer_id = $2 AND is_active = true`,
+        [customerDbId, officerId]
+      );
+    }
 
     // Get full task with customer details
     const fullResult = await pool.query(
@@ -527,11 +620,57 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       });
     }
 
+    // Delete the task
     await pool.query('DELETE FROM actions WHERE id = $1', [taskId]);
+
+    // If officer deleted the task, reactivate the assignment so customer goes back to Analysis page
+    if (req.user.role === 'retentionOfficer' && existingTask.customer_id) {
+      // Check if there's already an active assignment
+      const activeAssignmentCheck = await pool.query(
+        `SELECT id FROM customer_assignments 
+         WHERE customer_id = $1 AND officer_id = $2 AND is_active = true
+         LIMIT 1`,
+        [existingTask.customer_id, req.user.id]
+      );
+
+      if (activeAssignmentCheck.rows.length === 0) {
+        // No active assignment exists, check for expired one to reactivate
+        const expiredAssignmentCheck = await pool.query(
+          `SELECT id FROM customer_assignments 
+           WHERE customer_id = $1 AND officer_id = $2 
+           ORDER BY expires_at DESC LIMIT 1`,
+          [existingTask.customer_id, req.user.id]
+        );
+
+        if (expiredAssignmentCheck.rows.length > 0) {
+          // Reactivate the most recent assignment
+          const assignedAt = new Date();
+          const expiresAt = new Date(assignedAt.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+          
+          await pool.query(
+            `UPDATE customer_assignments 
+             SET is_active = true, assigned_at = $1, expires_at = $2
+             WHERE id = $3`,
+            [assignedAt, expiresAt, expiredAssignmentCheck.rows[0].id]
+          );
+        } else {
+          // Create a new assignment
+          const assignedAt = new Date();
+          const expiresAt = new Date(assignedAt.getTime() + 24 * 60 * 60 * 1000);
+          
+          await pool.query(
+            `INSERT INTO customer_assignments (customer_id, officer_id, assigned_at, expires_at, is_active)
+             VALUES ($1, $2, $3, $4, true)`,
+            [existingTask.customer_id, req.user.id, assignedAt, expiresAt]
+          );
+        }
+      }
+      // If active assignment already exists, no need to do anything
+    }
 
     res.json({
       success: true,
-      message: 'Task deleted successfully'
+      message: 'Task deleted successfully. Customer has been returned to your Analysis page.'
     });
   } catch (error) {
     console.error('Error deleting task:', error);

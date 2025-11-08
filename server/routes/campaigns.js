@@ -5,9 +5,26 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 
 // @route   GET /api/campaigns
 // @desc    Get all campaigns with filters
-// @access  Private (Analyst, Manager, Admin)
-router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+// @access  Private (Officer, Analyst, Manager, Admin)
+router.get('/', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
+    // Check if campaigns table exists first
+    try {
+      await pool.query('SELECT 1 FROM campaigns LIMIT 1');
+    } catch (tableError) {
+      // Table doesn't exist, return empty array
+      return res.json({
+        success: true,
+        campaigns: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0
+        }
+      });
+    }
+
     const { 
       page = 1, 
       limit = 10, 
@@ -19,7 +36,20 @@ router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionMa
     const offset = (page - 1) * limit;
     let query = `
       SELECT 
-        c.*,
+        c.id,
+        c.name,
+        c.description,
+        c.campaign_type,
+        c.status,
+        c.target_segment,
+        c.target_criteria,
+        c.start_date,
+        c.end_date,
+        c.budget,
+        c.allocated_budget,
+        c.created_by,
+        c.created_at,
+        c.updated_at,
         u.name as created_by_name,
         COUNT(ct.id) as target_count,
         COUNT(CASE WHEN ct.status = 'converted' THEN 1 END) as converted_count
@@ -49,40 +79,84 @@ router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionMa
       params.push(`%${search}%`);
     }
 
-    query += ` GROUP BY c.id, u.name`;
+    query += ` GROUP BY c.id, c.name, c.description, c.campaign_type, c.status, c.target_segment, c.target_criteria, c.start_date, c.end_date, c.budget, c.allocated_budget, c.created_by, c.created_at, c.updated_at, u.name`;
 
-    // Count total
-    const countQuery = query.replace('SELECT c.*, u.name as created_by_name, COUNT(ct.id) as target_count, COUNT(CASE WHEN ct.status = \'converted\' THEN 1 END) as converted_count', 'SELECT COUNT(DISTINCT c.id)');
-    const countResult = await pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
+    // Build separate count query
+    let countQuery = `
+      SELECT COUNT(DISTINCT c.id) as count
+      FROM campaigns c
+      WHERE 1=1
+    `;
+    const countParams = [];
+    let countParamCount = 0;
+
+    if (status) {
+      countParamCount++;
+      countQuery += ` AND c.status = $${countParamCount}`;
+      countParams.push(status);
+    }
+
+    if (campaign_type) {
+      countParamCount++;
+      countQuery += ` AND c.campaign_type = $${countParamCount}`;
+      countParams.push(campaign_type);
+    }
+
+    if (search) {
+      countParamCount++;
+      countQuery += ` AND (c.name ILIKE $${countParamCount} OR c.description ILIKE $${countParamCount})`;
+      countParams.push(`%${search}%`);
+    }
+
+    const countResult = await pool.query(countQuery, countParams).catch(err => {
+      console.error('Error counting campaigns:', err);
+      return { rows: [{ count: 0 }] };
+    });
+    const total = parseInt(countResult.rows[0]?.count || 0);
 
     // Get paginated results
     paramCount++;
     query += ` ORDER BY c.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(parseInt(limit), offset);
 
-    const result = await pool.query(query, params);
+    const result = await pool.query(query, params).catch(err => {
+      console.error('Error fetching campaigns:', err);
+      throw err;
+    });
 
     // Format response
-    const campaigns = result.rows.map(row => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      campaign_type: row.campaign_type,
-      status: row.status,
-      target_segment: row.target_segment,
-      target_criteria: row.target_criteria,
-      start_date: row.start_date,
-      end_date: row.end_date,
-      budget: parseFloat(row.budget) || 0,
-      allocated_budget: parseFloat(row.allocated_budget) || 0,
-      created_by: row.created_by,
-      created_by_name: row.created_by_name,
-      target_count: parseInt(row.target_count) || 0,
-      converted_count: parseInt(row.converted_count) || 0,
-      created_at: row.created_at,
-      updated_at: row.updated_at
-    }));
+    const campaigns = (result.rows || []).map(row => {
+      // Parse target_criteria if it's a string
+      let target_criteria = row.target_criteria;
+      if (typeof target_criteria === 'string') {
+        try {
+          target_criteria = JSON.parse(target_criteria);
+        } catch (parseError) {
+          console.error('Error parsing target_criteria JSON:', parseError);
+          target_criteria = null;
+        }
+      }
+
+      return {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        campaign_type: row.campaign_type,
+        status: row.status,
+        target_segment: row.target_segment,
+        target_criteria: target_criteria,
+        start_date: row.start_date,
+        end_date: row.end_date,
+        budget: parseFloat(row.budget) || 0,
+        allocated_budget: parseFloat(row.allocated_budget) || 0,
+        created_by: row.created_by,
+        created_by_name: row.created_by_name,
+        target_count: parseInt(row.target_count) || 0,
+        converted_count: parseInt(row.converted_count) || 0,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      };
+    });
 
     res.json({
       success: true,
@@ -107,7 +181,7 @@ router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionMa
 // @route   GET /api/campaigns/:id/customers
 // @desc    Get customers targeted by a campaign
 // @access  Private (Analyst, Manager, Admin)
-router.get('/:id/customers', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/:id/customers', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
     const campaignId = req.params.id;
     const { page = 1, limit = 50, status = null } = req.query;
@@ -194,7 +268,7 @@ router.get('/:id/customers', authenticateToken, requireRole(['retentionAnalyst',
 // @route   GET /api/campaigns/:id/performance
 // @desc    Get campaign performance metrics
 // @access  Private (Analyst, Manager, Admin)
-router.get('/:id/performance', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/:id/performance', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
     const campaignId = req.params.id;
     const { startDate, endDate } = req.query;
@@ -306,7 +380,7 @@ router.get('/:id/performance', authenticateToken, requireRole(['retentionAnalyst
 // @route   GET /api/campaigns/:id
 // @desc    Get campaign by ID
 // @access  Private (Analyst, Manager, Admin)
-router.get('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/:id', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
     const campaignId = req.params.id;
 

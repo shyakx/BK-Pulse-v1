@@ -89,7 +89,7 @@ const Approvals = () => {
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="mb-0">Pending Recommendations ({pendingRecommendations.length})</h5>
         </div>
-        <div className="card-body">
+        <div className="card-body p-0">
           {loading ? (
             <div className="text-center py-3">
               <div className="spinner-border spinner-border-sm text-primary" role="status">
@@ -102,7 +102,7 @@ const Approvals = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <table className="table table-hover">
+              <table className="table table-hover table-sm">
                 <thead>
                   <tr>
                     <th>Customer</th>
@@ -122,14 +122,16 @@ const Approvals = () => {
                         </Link>
                         <br />
                         <small className="text-muted">
-                          Score: {rec.churn_score.toFixed(1)}% | Risk: {rec.risk_level}
+                          Score: {rec.churn_score ? parseFloat(rec.churn_score).toFixed(1) : '0.0'}% | Risk: {rec.risk_level || 'N/A'}
                         </small>
                       </td>
                       <td>
                         <strong>{rec.recommended_action}</strong>
                       </td>
                       <td>
-                        <span className="badge bg-info">{rec.confidence_score.toFixed(1)}%</span>
+                        <span className="badge bg-info">
+                          {rec.confidence_score ? parseFloat(rec.confidence_score).toFixed(1) : '0.0'}%
+                        </span>
                       </td>
                       <td>
                         <span className={`badge ${getPriorityBadge(rec.expected_impact)}`}>
@@ -185,7 +187,7 @@ const Approvals = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <table className="table table-hover">
+              <table className="table table-hover table-sm">
                 <thead>
                   <tr>
                     <th>Customer ID</th>
@@ -206,7 +208,9 @@ const Approvals = () => {
                         </Link>
                       </td>
                       <td>
-                        <span className="badge bg-danger">{customer.churn_score?.toFixed(1) || 0}%</span>
+                        <span className="badge bg-danger">
+                          {customer.churn_score ? parseFloat(customer.churn_score).toFixed(1) : '0.0'}%
+                        </span>
                       </td>
                       <td>RWF {parseFloat(customer.account_balance || 0).toLocaleString()}</td>
                       <td>

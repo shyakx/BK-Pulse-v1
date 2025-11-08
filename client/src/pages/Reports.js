@@ -295,7 +295,7 @@ const Reports = () => {
               </div>
             ) : (
               <div>
-                <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-3 px-3 pt-3">
                   <h6>Customer List ({reportData.total} customers)</h6>
                 </div>
                 <div className="table-responsive">

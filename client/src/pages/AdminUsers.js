@@ -125,7 +125,7 @@ const AdminUsers = () => {
           
       {/* Users Table */}
               <div className="card">
-                <div className="card-body">
+                <div className="card-body p-0">
           {loading ? (
             <div className="text-center py-5">
               <div className="spinner-border text-primary" role="status">
@@ -138,7 +138,7 @@ const AdminUsers = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <table className="table table-hover">
+              <table className="table table-hover table-sm">
                 <thead>
                   <tr>
                     <th>Name</th>

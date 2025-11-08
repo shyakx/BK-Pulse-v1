@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { MdAdd, MdSearch, MdFilterList, MdCalendarToday, MdCheckCircle, MdPending } from 'react-icons/md';
+import { MdAdd, MdSearch, MdFilterList, MdCalendarToday, MdCheckCircle, MdPending, MdDone } from 'react-icons/md';
 import api from '../services/api';
 
 const RetentionNotes = () => {
@@ -108,6 +108,27 @@ const RetentionNotes = () => {
       }
     } catch (err) {
       alert('Failed to add note: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleMarkAsCompleted = async (noteId) => {
+    try {
+      const response = await api.updateRetentionNote(noteId, { status: 'resolved' });
+      
+      if (response.success) {
+        // Update local state immediately for better UX
+        setNotes(notes.map(note => 
+          note.id === noteId 
+            ? { ...note, status: 'Completed' }
+            : note
+        ));
+      } else {
+        throw new Error(response.message || 'Failed to update note');
+      }
+    } catch (err) {
+      alert('Failed to mark note as completed: ' + (err.response?.data?.message || err.message));
+      // Refresh notes on error to ensure consistency
+      fetchNotes();
     }
   };
 
@@ -233,7 +254,7 @@ const RetentionNotes = () => {
 
       {/* Notes Table */}
       <div className="card">
-        <div className="card-body">
+        <div className="card-body p-0">
           {loading ? (
             <div className="text-center py-5">
               <div className="spinner-border text-primary" role="status">
@@ -263,7 +284,7 @@ const RetentionNotes = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <table className="table table-hover">
+              <table className="table table-hover table-sm">
                 <thead>
                   <tr>
                     <th>Date</th>
@@ -274,6 +295,7 @@ const RetentionNotes = () => {
                     <th>Category</th>
                     <th>Follow-up Date</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -288,10 +310,14 @@ const RetentionNotes = () => {
                         <span className="badge bg-info">{note.category}</span>
                       </td>
                       <td>
-                        <div className="d-flex align-items-center">
-                          <MdCalendarToday className="me-1 text-muted" />
-                          {new Date(note.follow_up_date).toLocaleDateString()}
-                        </div>
+                        {note.follow_up_date ? (
+                          <div className="d-flex align-items-center">
+                            <MdCalendarToday className="me-1 text-muted" />
+                            {new Date(note.follow_up_date).toLocaleDateString()}
+                          </div>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
                       </td>
                       <td>
                         {note.status === 'Completed' ? (
@@ -304,6 +330,18 @@ const RetentionNotes = () => {
                             <MdPending className="me-1" />
                             Pending
                           </span>
+                        )}
+                      </td>
+                      <td>
+                        {note.status !== 'Completed' && (
+                          <button
+                            className="btn btn-sm btn-success"
+                            onClick={() => handleMarkAsCompleted(note.id)}
+                            title="Mark as Completed"
+                          >
+                            <MdDone className="me-1" />
+                            Complete
+                          </button>
                         )}
                       </td>
                     </tr>

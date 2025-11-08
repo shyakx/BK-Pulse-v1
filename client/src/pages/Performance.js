@@ -33,7 +33,7 @@ const Performance = () => {
           customersContacted: perf.notes?.total || 0,
           successfulRetentions: perf.customers?.customers_retained || perf.tasks?.completed || 0,
           retentionRate: perf.tasks?.completionRate || 0,
-          avgResponseTime: 2.3, // TODO: Calculate from action timestamps if needed
+          avgResponseTime: perf.avgResponseTime || perf.actions?.avgResponseTime || 0,
           tasksCompleted: perf.tasks?.completed || 0,
           tasksTotal: perf.tasks?.total || 0,
           notesTotal: perf.notes?.total || 0,

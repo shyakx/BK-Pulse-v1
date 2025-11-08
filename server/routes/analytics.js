@@ -141,22 +141,44 @@ router.get('/budget-roi', authenticateToken, requireRole(['retentionManager', 'a
       dateFilter = `AND c.created_at >= CURRENT_DATE - INTERVAL '3 months'`;
     }
 
-    // Campaign ROI summary
-    const campaignROI = await pool.query(`
-      SELECT 
-        c.id,
-        c.name,
-        c.budget,
-        c.allocated_budget,
-        COUNT(DISTINCT ct.id) as targets,
-        COUNT(DISTINCT CASE WHEN ct.status = 'converted' THEN ct.id END) as conversions,
-        SUM(cp.revenue_generated) as revenue
-      FROM campaigns c
-      LEFT JOIN campaign_targets ct ON c.id = ct.campaign_id
-      LEFT JOIN campaign_performance cp ON c.id = cp.campaign_id
-      WHERE c.status != 'draft' ${dateFilter}
-      GROUP BY c.id, c.name, c.budget, c.allocated_budget
-    `);
+    // Check if campaigns table exists
+    let campaignROI = { rows: [] };
+    try {
+      // Campaign ROI summary - handle missing tables gracefully
+      campaignROI = await pool.query(`
+        SELECT 
+          c.id,
+          c.name,
+          c.budget,
+          c.allocated_budget,
+          COALESCE(COUNT(DISTINCT ct.id), 0) as targets,
+          COALESCE(COUNT(DISTINCT CASE WHEN ct.status = 'converted' THEN ct.id END), 0) as conversions,
+          COALESCE(SUM(cp.revenue_generated), 0) as revenue
+        FROM campaigns c
+        LEFT JOIN campaign_targets ct ON c.id = ct.campaign_id
+        LEFT JOIN campaign_performance cp ON c.id = cp.campaign_id
+        WHERE c.status != 'draft' ${dateFilter}
+        GROUP BY c.id, c.name, c.budget, c.allocated_budget
+      `).catch(err => {
+        console.error('Error querying campaign ROI:', err);
+        // If tables don't exist, try simpler query
+        return pool.query(`
+          SELECT 
+            c.id,
+            c.name,
+            c.budget,
+            c.allocated_budget,
+            0 as targets,
+            0 as conversions,
+            0 as revenue
+          FROM campaigns c
+          WHERE c.status != 'draft' ${dateFilter}
+        `).catch(() => ({ rows: [] }));
+      });
+    } catch (err) {
+      console.error('Error fetching campaigns:', err);
+      campaignROI = { rows: [] };
+    }
 
     // Calculate overall budget and ROI metrics
     const totalBudget = campaignROI.rows.reduce((sum, row) => sum + (parseFloat(row.budget) || 0), 0);
@@ -168,23 +190,51 @@ router.get('/budget-roi', authenticateToken, requireRole(['retentionManager', 'a
     const costPerConversion = totalConversions > 0 ? (totalBudget / totalConversions).toFixed(2) : 0;
 
     // Retention actions cost (using actions and retention notes as proxy)
-    const retentionActionsCost = await pool.query(`
-      SELECT 
-        COUNT(DISTINCT a.id) as actions_count,
-        COUNT(DISTINCT rn.id) as notes_count
-      FROM actions a
-      FULL OUTER JOIN retention_notes rn ON a.officer_id = rn.officer_id
-      WHERE 1=1 ${dateFilter.replace('c.created_at', 'COALESCE(a.created_at, rn.created_at)')}
-    `);
+    let retentionActionsCost = { rows: [{ actions_count: 0, notes_count: 0 }] };
+    try {
+      const actionsDateFilter = dateFilter.replace('c.created_at', 'COALESCE(a.created_at, rn.created_at)');
+      retentionActionsCost = await pool.query(`
+        SELECT 
+          COUNT(DISTINCT a.id) as actions_count,
+          COUNT(DISTINCT rn.id) as notes_count
+        FROM actions a
+        FULL OUTER JOIN retention_notes rn ON a.officer_id = rn.officer_id
+        WHERE 1=1 ${actionsDateFilter}
+      `).catch(err => {
+        console.error('Error querying retention actions:', err);
+        // Try separate queries if FULL OUTER JOIN fails
+        return Promise.all([
+          pool.query(`SELECT COUNT(*) as count FROM actions WHERE 1=1 ${dateFilter.replace('c.created_at', 'created_at')}`).catch(() => ({ rows: [{ count: 0 }] })),
+          pool.query(`SELECT COUNT(*) as count FROM retention_notes WHERE 1=1 ${dateFilter.replace('c.created_at', 'created_at')}`).catch(() => ({ rows: [{ count: 0 }] }))
+        ]).then(([actions, notes]) => ({
+          rows: [{
+            actions_count: parseInt(actions.rows[0]?.count || 0),
+            notes_count: parseInt(notes.rows[0]?.count || 0)
+          }]
+        }));
+      });
+    } catch (err) {
+      console.error('Error fetching retention actions:', err);
+      retentionActionsCost = { rows: [{ actions_count: 0, notes_count: 0 }] };
+    }
 
     // Estimated value at risk
-    const valueAtRisk = await pool.query(`
-      SELECT 
-        COUNT(*) as high_risk_count,
-        SUM(account_balance) as total_value_at_risk
-      FROM customers
-      WHERE risk_level = 'high' AND churn_score >= 70
-    `);
+    let valueAtRisk = { rows: [{ high_risk_count: 0, total_value_at_risk: 0 }] };
+    try {
+      valueAtRisk = await pool.query(`
+        SELECT 
+          COUNT(*) as high_risk_count,
+          COALESCE(SUM(account_balance), 0) as total_value_at_risk
+        FROM customers
+        WHERE risk_level = 'high' AND (churn_score >= 70 OR churn_score IS NULL)
+      `).catch(err => {
+        console.error('Error querying value at risk:', err);
+        return { rows: [{ high_risk_count: 0, total_value_at_risk: 0 }] };
+      });
+    } catch (err) {
+      console.error('Error fetching value at risk:', err);
+      valueAtRisk = { rows: [{ high_risk_count: 0, total_value_at_risk: 0 }] };
+    }
 
     res.json({
       success: true,
@@ -193,18 +243,21 @@ router.get('/budget-roi', authenticateToken, requireRole(['retentionManager', 'a
           const budget = parseFloat(row.budget) || 0;
           const revenue = parseFloat(row.revenue) || 0;
           const conversions = parseInt(row.conversions) || 0;
-          const campaignROI = budget > 0 ? (((revenue - budget) / budget) * 100).toFixed(2) : 0;
+          // Calculate ROI as a multiplier (e.g., 2.5x means 2.5x return on investment)
+          const campaignROI = budget > 0 ? (revenue / budget) : 0;
           
           return {
             campaign_id: row.id,
-            campaign_name: row.name,
+            name: row.name || 'Unnamed Campaign',
             budget: budget,
             allocated: parseFloat(row.allocated_budget) || 0,
             targets: parseInt(row.targets) || 0,
             conversions: conversions,
             revenue: revenue,
-            roi: parseFloat(campaignROI),
-            cost_per_conversion: conversions > 0 ? (budget / conversions).toFixed(2) : 0
+            roi: parseFloat(campaignROI) || 0,
+            saved: revenue,
+            cost: budget,
+            cost_per_conversion: conversions > 0 ? (budget / conversions) : 0
           };
         }),
         summary: {

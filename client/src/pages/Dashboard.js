@@ -364,10 +364,12 @@ const Dashboard = () => {
       <div className="d-flex align-items-center justify-content-between mb-4">
         <div>
           <h2 className="fw-bold mb-1">
-            Welcome back, {user?.name || user?.email}!
+            {user?.role === 'retentionAnalyst' ? 'Overview Dashboard' : `Welcome back, ${user?.name || user?.email}!`}
           </h2>
           <p className="text-muted mb-0">
-            Here's what's happening with your {user?.role?.replace(/([A-Z])/g, ' $1').trim().toLowerCase()} dashboard today.
+            {user?.role === 'retentionAnalyst' 
+              ? "High-level churn trends and KPIs. Quickly check today's churn numbers, top drivers, and customer loss impact."
+              : `Here's what's happening with your ${user?.role?.replace(/([A-Z])/g, ' $1').trim().toLowerCase()} dashboard today.`}
           </p>
         </div>
         <div className="text-end">

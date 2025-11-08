@@ -83,11 +83,11 @@ router.get('/', authenticateToken, async (req, res) => {
     if (customer_id) {
       paramCount++;
       // Handle both numeric ID and string customer_id - cast appropriately
-      const isNumeric = /^\d+$/.test(customer_id);
+      const isNumeric = /^\d+$/.test(String(customer_id));
       if (isNumeric) {
-        query += ` AND (rn.customer_id = $${paramCount}::integer OR c.customer_id = $${paramCount}::text)`;
+        query += ` AND (rn.customer_id = $${paramCount}::integer OR c.customer_id::text = $${paramCount}::text)`;
       } else {
-        query += ` AND (rn.customer_id = $${paramCount}::integer OR c.customer_id = $${paramCount})`;
+        query += ` AND (rn.customer_id::text = $${paramCount} OR c.customer_id = $${paramCount})`;
       }
       params.push(customer_id);
     }
@@ -132,11 +132,11 @@ router.get('/', authenticateToken, async (req, res) => {
     if (customer_id) {
       countParamCount++;
       // Handle both numeric ID and string customer_id - cast appropriately
-      const isNumeric = /^\d+$/.test(customer_id);
+      const isNumeric = /^\d+$/.test(String(customer_id));
       if (isNumeric) {
-        countQuery += ` AND (rn.customer_id = $${countParamCount}::integer OR c.customer_id = $${countParamCount}::text)`;
+        countQuery += ` AND (rn.customer_id = $${countParamCount}::integer OR c.customer_id::text = $${countParamCount}::text)`;
       } else {
-        countQuery += ` AND (rn.customer_id = $${countParamCount}::integer OR c.customer_id = $${countParamCount})`;
+        countQuery += ` AND (rn.customer_id::text = $${countParamCount} OR c.customer_id = $${countParamCount})`;
       }
       countParams.push(customer_id);
     }
@@ -288,10 +288,26 @@ router.post('/', authenticateToken, async (req, res) => {
     // Resolve customer_id (could be customer.id or customer.customer_id)
     let customerDbId = null;
     if (typeof customer_id === 'string') {
-      const customerResult = await pool.query(
+      // Try to find by customer_id first
+      let customerResult = await pool.query(
         'SELECT id FROM customers WHERE customer_id = $1',
         [customer_id]
-      );
+      ).catch(err => {
+        console.error('Error querying by customer_id:', err);
+        return { rows: [] };
+      });
+      
+      // If not found, try by id (in case customer_id is actually numeric string)
+      if (customerResult.rows.length === 0 && /^\d+$/.test(customer_id)) {
+        customerResult = await pool.query(
+          'SELECT id FROM customers WHERE id = $1',
+          [parseInt(customer_id)]
+        ).catch(err => {
+          console.error('Error querying by id:', err);
+          return { rows: [] };
+        });
+      }
+      
       if (customerResult.rows.length === 0) {
         return res.status(404).json({
           success: false,

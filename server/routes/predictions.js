@@ -11,7 +11,7 @@ const {
 // @route   POST /api/predictions/single
 // @desc    Predict churn for a single customer
 // @access  Private (Analyst, Manager, Admin)
-router.post('/single', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.post('/single', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
     const customerData = req.body.customer_data || req.body;
     const includeShap = req.body.include_shap === true;
@@ -84,9 +84,15 @@ router.post('/customer/:id', authenticateToken, async (req, res) => {
 // @route   POST /api/predictions/batch
 // @desc    Predict churn for multiple customers
 // @access  Private (Analyst, Manager, Admin)
-router.post('/batch', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+  // Increase timeout for batch operations (5 minutes)
+  req.setTimeout(300000);
+  
   try {
     const { customer_ids, limit = 100 } = req.body;
+    
+    // Limit maximum batch size to prevent timeouts
+    const maxLimit = Math.min(limit, 100);
     
     let query = 'SELECT * FROM customers';
     let params = [];
@@ -97,7 +103,7 @@ router.post('/batch', authenticateToken, requireRole(['retentionAnalyst', 'reten
     } else {
       query += ' WHERE churn_score IS NULL OR updated_at < CURRENT_DATE - INTERVAL \'1 day\'';
       query += ' ORDER BY id LIMIT $1';
-      params.push(limit);
+      params.push(maxLimit);
     }
     
     const result = await pool.query(query, params);
@@ -151,7 +157,7 @@ router.post('/batch', authenticateToken, requireRole(['retentionAnalyst', 'reten
 // @route   GET /api/predictions/model-info
 // @desc    Get model information and metrics
 // @access  Private (Analyst, Manager, Admin)
-router.get('/model-info', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/model-info', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
     const fs = require('fs');
     const path = require('path');
@@ -169,6 +175,25 @@ router.get('/model-info', authenticateToken, requireRole(['retentionAnalyst', 'r
       'SELECT * FROM model_performance ORDER BY evaluation_date DESC LIMIT 10'
     );
     
+    // Try to get feature importance from model file if available
+    let featureImportance = [];
+    try {
+      const modelPath = path.join(__dirname, '../../data/models/gradient_boosting_best.pkl');
+      if (fs.existsSync(modelPath)) {
+        // Load model to get feature importance (this would require Python or reading pickle)
+        // For now, we'll use a placeholder that can be enhanced later
+        // In production, you'd want to extract this from the actual model
+        if (metrics && metrics.classification_report) {
+          // Extract top features from metrics if available
+          // This is a placeholder - actual feature importance should come from the model
+          featureImportance = [];
+        }
+      }
+    } catch (err) {
+      // Feature importance extraction failed, continue without it
+      console.warn('Could not extract feature importance:', err.message);
+    }
+
     res.json({
       success: true,
       model: {
@@ -176,10 +201,13 @@ router.get('/model-info', authenticateToken, requireRole(['retentionAnalyst', 'r
         version: 'best',
         metrics: metrics ? {
           accuracy: metrics.test_accuracy,
+          precision: metrics.test_precision,
+          recall: metrics.test_recall,
           f1_score: metrics.test_f1,
           roc_auc: metrics.test_roc_auc
         } : null,
-        performance_history: perfResult.rows
+        performance_history: perfResult.rows,
+        feature_importance: featureImportance
       }
     });
   } catch (error) {
