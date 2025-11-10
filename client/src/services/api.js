@@ -83,7 +83,10 @@ export const api = {
 
   // Customers
   getCustomers: (params = {}) => {
-    return apiClient.get('/customers', { params });
+    return apiClient.get('/customers', {
+      params,
+      timeout: 60000, // allow longer processing time for large datasets
+    });
   },
 
   getCustomer: (id, params = {}) => {
