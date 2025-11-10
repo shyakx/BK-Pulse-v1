@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MdPeople, MdWarning, MdCheckCircle, MdTrendingUp, MdDataUsage, MdHistory } from 'react-icons/md';
+import { MdPeople, MdWarning, MdCheckCircle, MdTrendingUp, MdHistory } from 'react-icons/md';
 import api from '../services/api';
 
 const AdminDashboard = () => {

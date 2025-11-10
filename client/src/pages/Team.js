@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
-import { MdPeople, MdPerson, MdArrowForward, MdTrendingUp, MdWarning, MdCheckCircle } from 'react-icons/md';
+import { MdPeople, MdArrowForward } from 'react-icons/md';
 import api from '../services/api';
 import ChurnOverviewCard from '../components/Dashboard/ChurnOverviewCard';
 
 const Team = () => {
-  const { user } = useAuth();
   const [team, setTeam] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberActivities, setMemberActivities] = useState(null);

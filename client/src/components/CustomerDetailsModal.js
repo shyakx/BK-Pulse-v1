@@ -1,24 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { MdClose, MdPhone, MdEmail, MdAccountBalance, MdWarning, MdRefresh, MdNote, MdSend } from 'react-icons/md';
+import React, { useState, useEffect, useCallback } from 'react';
+import { MdPhone, MdEmail, MdAccountBalance, MdRefresh, MdSend } from 'react-icons/md';
 import api from '../services/api';
 
 const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [shapValues, setShapValues] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [retentionNotes, setRetentionNotes] = useState([]);
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && customerId) {
-      fetchCustomerDetails();
-    }
-  }, [isOpen, customerId]);
-
-  const fetchCustomerDetails = async (refreshPrediction = false) => {
+  const fetchCustomerDetails = useCallback(async (refreshPrediction = false) => {
     try {
       setLoading(true);
       const response = await api.getCustomer(customerId, refreshPrediction ? { refresh: 'true' } : {});
@@ -31,7 +24,7 @@ const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
           try {
             const shapResponse = await api.getCustomerSHAP(customerId);
             if (shapResponse.success && shapResponse.shap_values) {
-              setShapValues(shapResponse.shap_values);
+              // Future enhancement: display SHAP values in the UI if needed
             }
           } catch (err) {
             // SHAP not critical
@@ -65,7 +58,13 @@ const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
+
+  useEffect(() => {
+    if (isOpen && customerId) {
+      fetchCustomerDetails();
+    }
+  }, [isOpen, customerId, fetchCustomerDetails]);
 
   const handleRefreshPrediction = async () => {
     try {

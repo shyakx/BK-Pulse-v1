@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { MdRefresh, MdCheckCircle, MdCancel, MdTrendingUp, MdTrendingDown, MdBarChart, MdWarning } from 'react-icons/md';
 
@@ -11,12 +11,7 @@ const ModelValidation = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  useEffect(() => {
-    fetchMetrics();
-    fetchComparisons();
-  }, [filters, currentPage]);
-
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.getModelValidationMetrics();
@@ -29,9 +24,9 @@ const ModelValidation = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchComparisons = async () => {
+  const fetchComparisons = useCallback(async () => {
     try {
       setLoadingComparisons(true);
       const params = {
@@ -49,7 +44,15 @@ const ModelValidation = () => {
     } finally {
       setLoadingComparisons(false);
     }
-  };
+  }, [filters, currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    fetchMetrics();
+  }, [fetchMetrics]);
+
+  useEffect(() => {
+    fetchComparisons();
+  }, [fetchComparisons]);
 
   const getMetricColor = (value) => {
     if (value >= 80) return 'success';

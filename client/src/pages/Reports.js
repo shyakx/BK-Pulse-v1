@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { MdDownload, MdFilePresent, MdAssessment, MdPeople } from 'react-icons/md';
+import { MdDownload, MdAssessment } from 'react-icons/md';
 import api from '../services/api';
 
 const Reports = () => {
-  const { user } = useAuth();
   const [reportType, setReportType] = useState('performance');
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);

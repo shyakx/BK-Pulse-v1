@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MdSearch, MdFilterList, MdDownload } from 'react-icons/md';
 import api from '../services/api';
 
@@ -11,19 +11,21 @@ const AdminAudit = () => {
     startDate: '',
     endDate: ''
   });
+  const [appliedFilters, setAppliedFilters] = useState({
+    user_id: '',
+    action: '',
+    startDate: '',
+    endDate: ''
+  });
   const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0 });
 
-  useEffect(() => {
-    fetchAuditLogs();
-  }, [pagination.page]);
-
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = useCallback(async () => {
     try {
       setLoading(true);
       const params = {
         page: pagination.page,
         limit: 50,
-        ...filters
+        ...appliedFilters
       };
 
       // Remove empty filters
@@ -48,11 +50,15 @@ const AdminAudit = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [appliedFilters, pagination.page]);
+
+  useEffect(() => {
+    fetchAuditLogs();
+  }, [fetchAuditLogs]);
 
   const handleApplyFilters = () => {
     setPagination(prev => ({ ...prev, page: 1 }));
-    fetchAuditLogs();
+    setAppliedFilters(filters);
   };
 
   const handleExport = () => {

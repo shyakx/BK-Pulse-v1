@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { MdCheckCircle, MdCancel, MdWarning, MdRefresh } from 'react-icons/md';
 import api from '../services/api';
 
 const Approvals = () => {
-  const { user } = useAuth();
   const [pendingRecommendations, setPendingRecommendations] = useState([]);
   const [criticalCases, setCriticalCases] = useState([]);
   const [loading, setLoading] = useState(true);

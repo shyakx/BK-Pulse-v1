@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MdAdd, MdEdit, MdLock, MdLockOpen, MdDelete } from 'react-icons/md';
+import { MdAdd, MdEdit, MdLock, MdLockOpen } from 'react-icons/md';
 import api from '../services/api';
 
 const AdminUsers = () => {

@@ -11,13 +11,13 @@ const MyTasks = () => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [creatingTask, setCreatingTask] = useState(null);
   const [removingAssignment, setRemovingAssignment] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [deletingTask, setDeletingTask] = useState(null);
+  const [, setShowAddModal] = useState(false);
   const [assignedCustomersCount, setAssignedCustomersCount] = useState(0);
   const [assignedCustomersChange, setAssignedCustomersChange] = useState('+0 this week');
 

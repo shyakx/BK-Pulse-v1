@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { MdPlayArrow, MdDownload, MdSearch, MdFilterList, MdPerson, MdTrendingUp, MdAccountCircle, MdInfo, MdEmail, MdPhone, MdLocationOn, MdBusiness, MdAccountBalance, MdTrendingDown } from 'react-icons/md';
+import { MdPlayArrow, MdDownload, MdSearch, MdPerson, MdTrendingUp, MdAccountCircle, MdBusiness, MdTrendingDown } from 'react-icons/md';
 
 const PredictionInsights = () => {
   const [segmentType, setSegmentType] = useState('all');

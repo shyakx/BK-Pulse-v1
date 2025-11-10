@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MdRefresh, MdTrendingUp, MdAssessment } from 'react-icons/md';
+import { MdRefresh, MdAssessment } from 'react-icons/md';
 import api from '../services/api';
 
 const AdminModels = () => {

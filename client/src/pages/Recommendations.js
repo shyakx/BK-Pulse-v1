@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
-import { MdCheckCircle, MdPending, MdWarning, MdCancel, MdRefresh, MdSearch, MdFilterList, MdTrendingUp, MdLightbulb, MdAccountBalance, MdBarChart, MdThumbUp } from 'react-icons/md';
+import { MdCheckCircle, MdPending, MdCancel, MdRefresh, MdSearch, MdFilterList, MdTrendingUp, MdLightbulb, MdAccountBalance, MdBarChart, MdThumbUp } from 'react-icons/md';
 import api from '../services/api';
 
 const Recommendations = () => {
@@ -12,11 +12,7 @@ const Recommendations = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  useEffect(() => {
-    fetchRecommendations();
-  }, [filterStatus]);
-
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = useCallback(async () => {
     try {
       setLoading(true);
       const params = {
@@ -101,7 +97,11 @@ const Recommendations = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus, searchTerm]);
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, [fetchRecommendations]);
 
   const handleStatusUpdate = async (recommendationId, newStatus) => {
     if (!['retentionManager', 'admin'].includes(user?.role)) {

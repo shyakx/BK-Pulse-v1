@@ -54,13 +54,15 @@ const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary
       { threshold: 0.1 }
     );
 
-    if (cardRef.current) {
-      observer.observe(cardRef.current);
+    const element = cardRef.current;
+
+    if (element) {
+      observer.observe(element);
     }
 
     return () => {
-      if (cardRef.current) {
-        observer.unobserve(cardRef.current);
+      if (element) {
+        observer.unobserve(element);
       }
     };
   }, [isVisible, delay]);
@@ -73,7 +75,7 @@ const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary
       const timer = setTimeout(() => setIsVisible(true), 100);
       return () => clearTimeout(timer);
     }
-  }, [value]);
+  }, [value, displayValue]);
 
   useEffect(() => {
     if (!isVisible) return;
