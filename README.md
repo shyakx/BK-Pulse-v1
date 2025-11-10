@@ -417,7 +417,6 @@ Available in `server/scripts/`:
 - `updateChurnScores.js` - Update customer churn scores using ML model
 - `addCustomersBatch.js` - Add customers in batches to the database
 - `generateCustomers.js` - Generate customer data for seeding
-- `seedRetentionNotes.js` - Seed retention notes data
 - `createEnv.js` - Interactive .env file creator
 
 ### Performance

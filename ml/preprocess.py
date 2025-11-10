@@ -12,10 +12,14 @@ import os
 from datetime import datetime
 
 # Configuration
-RAW_DATA_PATH = '../data/raw/bk_simulated_churn_dataset_with_segment_200k.csv'
-PROCESSED_DATA_PATH = '../data/processed/processed_data.csv'
-SCALER_PATH = '../data/processed/scaler.pkl'
-ENCODER_PATH = '../data/processed/encoders.pkl'
+# Using the fixed dataset that follows BK business rules
+# Path is relative to the script location (ml/ directory)
+RAW_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'raw', 'bk_simulated_churn_dataset_with_segment_200k_FINAL.csv')
+# Paths relative to script location
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROCESSED_DATA_PATH = os.path.join(BASE_DIR, 'data', 'processed', 'processed_data.csv')
+SCALER_PATH = os.path.join(BASE_DIR, 'data', 'processed', 'scaler.pkl')
+ENCODER_PATH = os.path.join(BASE_DIR, 'data', 'processed', 'encoders.pkl')
 
 
 def clean_balance(value):
@@ -70,15 +74,23 @@ def preprocess_data():
     # Create a copy for processing
     df_processed = df.copy()
     
-    # Clean Balance column
+    # Clean Balance column (handle both formats: with/without spaces)
     print("Cleaning balance values...")
-    df_processed['Balance'] = df_processed[' Balance '].apply(clean_balance)
-    df_processed = df_processed.drop(columns=[' Balance '])
+    balance_col = ' Balance ' if ' Balance ' in df_processed.columns else 'Balance'
+    if balance_col != 'Balance':
+        df_processed['Balance'] = df_processed[balance_col].apply(clean_balance)
+        df_processed = df_processed.drop(columns=[balance_col])
+    else:
+        df_processed['Balance'] = df_processed['Balance'].apply(clean_balance)
     
-    # Clean Average Transaction Value
+    # Clean Average Transaction Value (handle both formats: with/without spaces)
     print("Cleaning transaction values...")
-    df_processed['Average_Transaction_Value'] = df_processed[' Average_Transaction_Value '].apply(clean_transaction_value)
-    df_processed = df_processed.drop(columns=[' Average_Transaction_Value '])
+    trans_val_col = ' Average_Transaction_Value ' if ' Average_Transaction_Value ' in df_processed.columns else 'Average_Transaction_Value'
+    if trans_val_col != 'Average_Transaction_Value':
+        df_processed['Average_Transaction_Value'] = df_processed[trans_val_col].apply(clean_transaction_value)
+        df_processed = df_processed.drop(columns=[trans_val_col])
+    else:
+        df_processed['Average_Transaction_Value'] = df_processed['Average_Transaction_Value'].apply(clean_transaction_value)
     
     # Parse dates
     print("Parsing dates...")
@@ -119,11 +131,14 @@ def preprocess_data():
             encoders[col] = le
     
     # Select features for modeling (excluding ID, dates, and target-related columns)
+    # NOTE: Removed 'Account_Status_encoded' as it's derived from 'Days_Since_Last_Transaction'
+    # and creates data leakage (we set account_status based on days_since_last_transaction)
     feature_cols = [
         'Customer_Segment_encoded', 'Gender_encoded', 'Age', 'Nationality_encoded',
         'Account_Type_encoded', 'Branch_encoded', 'Currency_encoded',
         'Balance', 'Tenure_Months', 'Num_Products', 'Has_Credit_Card',
-        'Account_Status_encoded', 'Transaction_Frequency', 'Average_Transaction_Value',
+        # 'Account_Status_encoded',  # REMOVED: Data leakage - derived from Days_Since_Last_Transaction
+        'Transaction_Frequency', 'Average_Transaction_Value',
         'Mobile_Banking_Usage', 'Branch_Visits', 'Complaint_History',
         'Account_Age_Months', 'Days_Since_Last_Transaction', 'Activity_Score',
         'Account_Open_Month', 'Account_Open_Year', 'Last_Transaction_Month', 'Last_Transaction_Year'
@@ -143,6 +158,7 @@ def preprocess_data():
     
     # Save encoders
     print("Saving encoders...")
+    os.makedirs(os.path.dirname(ENCODER_PATH), exist_ok=True)
     joblib.dump(encoders, ENCODER_PATH)
     
     # Split data
@@ -166,18 +182,28 @@ def preprocess_data():
     )
     
     # Save scaler
+    os.makedirs(os.path.dirname(SCALER_PATH), exist_ok=True)
     joblib.dump(scaler, SCALER_PATH)
     
     # Save processed data
     print("Saving processed data...")
-    os.makedirs('../data/processed', exist_ok=True)
+    os.makedirs(os.path.dirname(PROCESSED_DATA_PATH), exist_ok=True)
     
     # Save train/test sets
-    X_train_scaled.to_csv('../data/processed/X_train.csv', index=False)
-    X_test_scaled.to_csv('../data/processed/X_test.csv', index=False)
+    processed_dir = os.path.dirname(PROCESSED_DATA_PATH)
+    # Ensure directory exists
+    os.makedirs(processed_dir, exist_ok=True)
+    # Use absolute paths and normalize
+    train_path = os.path.normpath(os.path.join(processed_dir, 'X_train.csv'))
+    test_path = os.path.normpath(os.path.join(processed_dir, 'X_test.csv'))
+    y_train_path = os.path.normpath(os.path.join(processed_dir, 'y_train.csv'))
+    y_test_path = os.path.normpath(os.path.join(processed_dir, 'y_test.csv'))
+    
+    X_train_scaled.to_csv(train_path, index=False)
+    X_test_scaled.to_csv(test_path, index=False)
     # Save y as DataFrame with column name for easier loading
-    y_train.to_frame('Churn_Flag').to_csv('../data/processed/y_train.csv', index=False)
-    y_test.to_frame('Churn_Flag').to_csv('../data/processed/y_test.csv', index=False)
+    y_train.to_frame('Churn_Flag').to_csv(y_train_path, index=False)
+    y_test.to_frame('Churn_Flag').to_csv(y_test_path, index=False)
     
     # Also save combined processed dataset
     df_processed['Churn_Flag'] = y

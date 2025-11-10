@@ -17,6 +17,33 @@ const PYTHON_SCRIPT_PATH = path.join(__dirname, '../../ml/predict.py');
 function predictChurn(customerData, includeShap = false) {
   return new Promise((resolve, reject) => {
     try {
+      // Apply BK business rules BEFORE prediction
+      const accountType = customerData.Account_Type || customerData.account_type || customerData.product_type;
+      const daysSinceLastTransaction = customerData.Days_Since_Last_Transaction || 
+                                       customerData.days_since_last_transaction || 0;
+      
+      // Rule 1: Savings and Fixed Deposit accounts cannot churn (per BNR rules)
+      if (accountType === 'Savings' || accountType === 'Fixed Deposit') {
+        return resolve({
+          churn_probability: 0,
+          churn_prediction: 0,
+          churn_score: 0,
+          risk_level: 'low',
+          note: 'Savings/Fixed Deposit accounts cannot churn per BNR regulations'
+        });
+      }
+      
+      // Rule 2: Current accounts with 12+ months no transaction are already churned
+      if (accountType === 'Current' && daysSinceLastTransaction >= 365) {
+        return resolve({
+          churn_probability: 0.95,
+          churn_prediction: 1,
+          churn_score: 95,
+          risk_level: 'high',
+          note: 'No transaction in 12+ months - already churned per BK rules'
+        });
+      }
+      
       // Convert customer data to JSON string with SHAP flag
       const inputData = {
         customer_data: customerData,
@@ -95,10 +122,19 @@ async function predictChurnBatch(customersData, onProgress) {
       return predictChurn(customer).then(result => {
         processed++;
         if (onProgress) onProgress(processed, customersData.length);
-        return {
+        const finalResult = {
           ...result,
           customer_id: customerId
         };
+        // Log first few successful predictions for debugging
+        if (processed <= 3) {
+          console.log(`[Batch Predict] Customer ${customerId}:`, {
+            churn_score: finalResult.churn_score,
+            risk_level: finalResult.risk_level,
+            hasError: !!finalResult.error
+          });
+        }
+        return finalResult;
       }).catch(error => {
         processed++;
         if (onProgress) onProgress(processed, customersData.length);

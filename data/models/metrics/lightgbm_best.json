@@ -1,0 +1,49 @@
+{
+  "model_name": "LightGBM",
+  "train_accuracy": 0.9985423984767408,
+  "test_accuracy": 0.99685,
+  "train_precision": 0.9970932706597098,
+  "test_precision": 0.9385365853658536,
+  "train_recall": 1.0,
+  "test_recall": 1.0,
+  "train_f1": 0.9985445199866253,
+  "test_f1": 0.9682939104177152,
+  "overfitting_gap": 0.0016923984767407418,
+  "test_roc_auc": 0.9999884313329792,
+  "cv_mean": 0.9999974636602047,
+  "cv_std": 2.1466241358281055e-06,
+  "classification_report": {
+    "0": {
+      "precision": 1.0,
+      "recall": 0.9966908288685786,
+      "f1-score": 0.9983426722437061,
+      "support": 38076.0
+    },
+    "1": {
+      "precision": 0.9385365853658536,
+      "recall": 1.0,
+      "f1-score": 0.9682939104177152,
+      "support": 1924.0
+    },
+    "accuracy": 0.99685,
+    "macro avg": {
+      "precision": 0.9692682926829268,
+      "recall": 0.9983454144342894,
+      "f1-score": 0.9833182913307106,
+      "support": 40000.0
+    },
+    "weighted avg": {
+      "precision": 0.9970436097560976,
+      "recall": 0.99685,
+      "f1-score": 0.996897326799876,
+      "support": 40000.0
+    }
+  },
+  "confusion_matrix": {
+    "tn": 37950,
+    "fp": 126,
+    "fn": 0,
+    "tp": 1924
+  },
+  "score": 0.9830644465655718
+}

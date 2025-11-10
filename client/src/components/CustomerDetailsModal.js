@@ -10,6 +10,7 @@ const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
   const [retentionNotes, setRetentionNotes] = useState([]);
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (isOpen && customerId) {
@@ -17,10 +18,10 @@ const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
     }
   }, [isOpen, customerId]);
 
-  const fetchCustomerDetails = async () => {
+  const fetchCustomerDetails = async (refreshPrediction = false) => {
     try {
       setLoading(true);
-      const response = await api.getCustomer(customerId);
+      const response = await api.getCustomer(customerId, refreshPrediction ? { refresh: 'true' } : {});
       
       if (response.success) {
         setCustomer(response.customer);
@@ -63,6 +64,18 @@ const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
       console.error('Error fetching customer details:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshPrediction = async () => {
+    try {
+      setRefreshing(true);
+      await fetchCustomerDetails(true);
+    } catch (err) {
+      console.error('Error refreshing prediction:', err);
+      alert('Failed to refresh prediction: ' + err.message);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -118,7 +131,25 @@ const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
             <h5 className="modal-title">
               {loading ? 'Loading...' : customer ? `${customer.name} - ${customer.customer_id}` : 'Customer Details'}
             </h5>
-            <button type="button" className="btn-close" onClick={onClose}></button>
+            <div className="d-flex gap-2">
+              <button 
+                type="button" 
+                className="btn btn-sm btn-outline-primary"
+                onClick={handleRefreshPrediction}
+                disabled={refreshing || loading}
+                title="Refresh prediction"
+              >
+                {refreshing ? (
+                  <span className="spinner-border spinner-border-sm" />
+                ) : (
+                  <>
+                    <MdRefresh className="me-1" />
+                    Refresh Prediction
+                  </>
+                )}
+              </button>
+              <button type="button" className="btn-close" onClick={onClose}></button>
+            </div>
           </div>
           <div className="modal-body">
             {loading ? (
@@ -188,10 +219,10 @@ const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
                         <label className="text-muted small">Churn Score</label>
                         <div>
                           <span className={`badge ${
-                            (customer.churn_score || 0) >= 70 ? 'bg-danger' :
-                            (customer.churn_score || 0) >= 50 ? 'bg-warning' : 'bg-success'
+                            (parseFloat(customer.churn_score) || 0) >= 70 ? 'bg-danger' :
+                            (parseFloat(customer.churn_score) || 0) >= 50 ? 'bg-warning' : 'bg-success'
                           }`} style={{ fontSize: '1.2rem', padding: '0.5rem 1rem' }}>
-                            {(customer.churn_score || 0).toFixed(1)}%
+                            {(parseFloat(customer.churn_score) || 0).toFixed(1)}%
                           </span>
                         </div>
                       </div>

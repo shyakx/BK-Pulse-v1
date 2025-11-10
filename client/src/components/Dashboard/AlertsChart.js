@@ -88,20 +88,38 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
     ]
   };
 
-  const doughnutData = data?.alerts ? {
+  // Handle alerts data - can be object {highRisk, mediumRisk, lowRisk} or array [{label, value}]
+  const getAlertsData = () => {
+    if (!data?.alerts) {
+      return { highRisk: 0, mediumRisk: 0, lowRisk: 0 };
+    }
+    
+    if (Array.isArray(data.alerts)) {
+      // Convert array format to object format
+      return data.alerts.reduce((acc, alert) => {
+        const key = alert.label?.toLowerCase().replace(/\s+/g, '') || '';
+        if (key.includes('high')) acc.highRisk = alert.value || 0;
+        else if (key.includes('medium')) acc.mediumRisk = alert.value || 0;
+        else if (key.includes('low')) acc.lowRisk = alert.value || 0;
+        return acc;
+      }, { highRisk: 0, mediumRisk: 0, lowRisk: 0 });
+    }
+    
+    // Already in object format
+    return {
+      highRisk: data.alerts.highRisk || 0,
+      mediumRisk: data.alerts.mediumRisk || 0,
+      lowRisk: data.alerts.lowRisk || 0
+    };
+  };
+
+  const alertsData = getAlertsData();
+  
+  const doughnutData = {
     labels: ['High Risk', 'Medium Risk', 'Low Risk'],
     datasets: [
       {
-        data: [data.alerts.highRisk || 0, data.alerts.mediumRisk || 0, data.alerts.lowRisk || 0],
-        backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
-        borderWidth: 0
-      }
-    ]
-  } : {
-    labels: ['High Risk', 'Medium Risk', 'Low Risk'],
-    datasets: [
-      {
-        data: [15, 35, 50],
+        data: [alertsData.highRisk, alertsData.mediumRisk, alertsData.lowRisk],
         backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
         borderWidth: 0
       }

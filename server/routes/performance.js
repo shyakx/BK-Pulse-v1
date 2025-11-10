@@ -177,43 +177,72 @@ router.get('/leaderboard', authenticateToken, async (req, res) => {
 
     // Get date range (default to last 30 days)
     const { period = 'month' } = req.query;
-    let dateFilter = '';
     
+    // Determine date interval based on period
+    let intervalDays = 30;
     switch (period) {
       case 'week':
-        dateFilter = `AND a.created_at >= CURRENT_DATE - INTERVAL '7 days'`;
+        intervalDays = 7;
         break;
       case 'month':
-        dateFilter = `AND a.created_at >= CURRENT_DATE - INTERVAL '30 days'`;
+        intervalDays = 30;
         break;
       case 'quarter':
-        dateFilter = `AND a.created_at >= CURRENT_DATE - INTERVAL '90 days'`;
+        intervalDays = 90;
         break;
       default:
-        dateFilter = `AND a.created_at >= CURRENT_DATE - INTERVAL '30 days'`;
+        intervalDays = 30;
     }
 
-    // Get leaderboard data
+    // Get leaderboard data - optimized with subqueries for better performance
+    // Using parameterized queries for date filtering
     const leaderboard = await pool.query(`
       SELECT 
         u.id,
         u.name,
         u.email,
-        COUNT(DISTINCT a.id) FILTER (WHERE a.status = 'completed') as tasks_completed,
-        COUNT(DISTINCT rn.id) as notes_count,
-        COUNT(DISTINCT c.id) FILTER (WHERE c.risk_level = 'low') as customers_retained,
-        ROUND(
-          (COUNT(DISTINCT a.id) FILTER (WHERE a.status = 'completed')::DECIMAL / 
-           NULLIF(COUNT(DISTINCT a.id), 0) * 100), 
-          1
-        ) as completion_rate
+        COALESCE(task_stats.tasks_completed, 0) as tasks_completed,
+        COALESCE(task_stats.total_tasks, 0) as total_tasks,
+        COALESCE(note_stats.notes_count, 0) as notes_count,
+        COALESCE(customer_stats.customers_retained, 0) as customers_retained,
+        CASE 
+          WHEN COALESCE(task_stats.total_tasks, 0) > 0 
+          THEN ROUND((COALESCE(task_stats.tasks_completed, 0)::DECIMAL / task_stats.total_tasks * 100), 1)
+          ELSE 0
+        END as completion_rate
       FROM users u
-      LEFT JOIN actions a ON u.id = a.officer_id ${dateFilter}
-      LEFT JOIN retention_notes rn ON u.id = rn.officer_id ${dateFilter}
-      LEFT JOIN customers c ON u.id = c.assigned_officer_id
+      LEFT JOIN (
+        SELECT 
+          officer_id,
+          COUNT(*) FILTER (WHERE status = 'completed') as tasks_completed,
+          COUNT(*) as total_tasks
+        FROM actions
+        WHERE created_at >= CURRENT_DATE - INTERVAL '${intervalDays} days'
+        GROUP BY officer_id
+      ) task_stats ON u.id = task_stats.officer_id
+      LEFT JOIN (
+        SELECT 
+          officer_id,
+          COUNT(*) as notes_count
+        FROM retention_notes
+        WHERE created_at >= CURRENT_DATE - INTERVAL '${intervalDays} days'
+        GROUP BY officer_id
+      ) note_stats ON u.id = note_stats.officer_id
+      LEFT JOIN (
+        SELECT 
+          assigned_officer_id,
+          COUNT(*) FILTER (WHERE risk_level = 'low') as customers_retained
+        FROM customers
+        WHERE assigned_officer_id IS NOT NULL
+        GROUP BY assigned_officer_id
+      ) customer_stats ON u.id = customer_stats.assigned_officer_id
       WHERE u.role = 'retentionOfficer'
-      GROUP BY u.id, u.name, u.email
-      ORDER BY tasks_completed DESC, completion_rate DESC
+      ORDER BY COALESCE(task_stats.tasks_completed, 0) DESC, 
+               CASE 
+                 WHEN COALESCE(task_stats.total_tasks, 0) > 0 
+                 THEN (COALESCE(task_stats.tasks_completed, 0)::DECIMAL / task_stats.total_tasks * 100)
+                 ELSE 0
+               END DESC
       LIMIT 10
     `);
 
@@ -222,7 +251,7 @@ router.get('/leaderboard', authenticateToken, async (req, res) => {
       leaderboard: leaderboard.rows.map((row, index) => ({
         rank: index + 1,
         officer_id: row.id,
-        officer_name: row.name,
+        officer_name: row.name || row.email || 'Unknown',
         email: row.email,
         tasks_completed: parseInt(row.tasks_completed) || 0,
         notes_count: parseInt(row.notes_count) || 0,

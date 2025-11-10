@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { MdFilterList, MdSearch, MdTrendingUp, MdWarning, MdPeople, MdBarChart, MdTrendingDown, MdAccountBalance, MdInfo, MdLightbulb, MdCompareArrows, MdNotificationsActive, MdAdd, MdDownload } from 'react-icons/md';
+import { MdFilterList, MdSearch, MdTrendingUp, MdWarning, MdPeople, MdTrendingDown, MdAccountBalance, MdInfo, MdLightbulb, MdCompareArrows, MdNotificationsActive, MdAdd, MdDownload, MdRefresh } from 'react-icons/md';
 import api from '../services/api';
+import ChurnOverviewCard from '../components/Dashboard/ChurnOverviewCard';
 
 const Analysis = () => {
   const { user } = useAuth();
@@ -21,6 +22,7 @@ const Analysis = () => {
     max_balance: ''
   });
   const [analysis, setAnalysis] = useState(null);
+  const [refreshingPredictions, setRefreshingPredictions] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -32,16 +34,25 @@ const Analysis = () => {
   const fetchCustomers = async () => {
     try {
       setLoading(true);
-      const params = {
-        page: 1,
-        limit: 100,
-        search: searchTerm || ''
-      };
 
-      // For officers, use assignments API; for others, use customers API
+      // For officers, show unassigned customers (not in My Tasks); for others, use customers API
       let response;
       if (user?.role === 'retentionOfficer') {
-        response = await api.getMyAssignedCustomers(params);
+        // Officers should see unassigned customers in Analysis page
+        // We'll need to get all high-risk customers and filter out assigned ones
+        // For now, show all high-risk customers (backend will handle filtering)
+        const customerParams = {
+          page: 1,
+          limit: 500,
+          min_churn_score: 70,
+          ...filters
+        };
+        Object.keys(customerParams).forEach(key => {
+          if (customerParams[key] === '' || customerParams[key] === null) {
+            delete customerParams[key];
+          }
+        });
+        response = await api.getCustomers(customerParams);
       } else {
         // For analysts/managers, show all high-risk customers
         const customerParams = {
@@ -59,9 +70,10 @@ const Analysis = () => {
       }
       if (response.success) {
         const customersData = response.customers || [];
+        const totalCount = response.pagination?.total || customersData.length;
         setCustomers(customersData);
         if (customersData.length > 0) {
-          analyzeCustomers(customersData);
+          analyzeCustomers(customersData, totalCount);
         } else {
           setAnalysis(null);
         }
@@ -74,6 +86,43 @@ const Analysis = () => {
       alert('Failed to fetch customers: ' + (err.response?.data?.message || err.message));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshPredictions = async () => {
+    if (!window.confirm(`Refresh predictions for ${customers.length} displayed customers? This will update their churn scores using the ML model.`)) {
+      return;
+    }
+
+    try {
+      setRefreshingPredictions(true);
+      
+      // Get customer IDs from displayed customers
+      const customerIds = customers.map(c => c.customer_id || c.id).filter(Boolean);
+      
+      if (customerIds.length === 0) {
+        alert('No customers to refresh');
+        return;
+      }
+
+      // Call batch prediction API
+      const response = await api.batchPredict({ 
+        customer_ids: customerIds,
+        limit: customerIds.length 
+      });
+
+      if (response.success) {
+        alert(`Successfully updated ${response.updated || 0} customer predictions. Refreshing list...`);
+        // Refresh the customer list
+        await fetchCustomers();
+      } else {
+        throw new Error(response.message || 'Failed to refresh predictions');
+      }
+    } catch (err) {
+      console.error('Error refreshing predictions:', err);
+      alert('Failed to refresh predictions: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setRefreshingPredictions(false);
     }
   };
 
@@ -120,19 +169,22 @@ const Analysis = () => {
     }
   };
 
-  const analyzeCustomers = (customersData) => {
+  const analyzeCustomers = (customersData, totalCount = null) => {
     if (!customersData || customersData.length === 0) {
       setAnalysis(null);
       return;
     }
 
-    const total = customersData.length;
+    // Use totalCount from pagination if provided, otherwise use array length
+    const total = totalCount !== null ? totalCount : customersData.length;
+    const dataLength = customersData.length; // Use actual array length for calculations
     const highRisk = customersData.filter(c => c.risk_level === 'high').length;
     const mediumRisk = customersData.filter(c => c.risk_level === 'medium').length;
     const lowRisk = customersData.filter(c => c.risk_level === 'low').length;
 
-    const avgChurnScore = customersData.reduce((sum, c) => sum + (c.churn_score || 0), 0) / total;
-    const avgBalance = customersData.reduce((sum, c) => sum + (parseFloat(c.account_balance) || 0), 0) / total;
+    // Calculate averages based on actual data length, not total count
+    const avgChurnScore = dataLength > 0 ? customersData.reduce((sum, c) => sum + (c.churn_score || 0), 0) / dataLength : 0;
+    const avgBalance = dataLength > 0 ? customersData.reduce((sum, c) => sum + (parseFloat(c.account_balance) || 0), 0) / dataLength : 0;
     const totalBalance = customersData.reduce((sum, c) => sum + (parseFloat(c.account_balance) || 0), 0);
 
     // Segment distribution
@@ -316,7 +368,11 @@ const Analysis = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h2 className="fw-bold mb-1">Behavioral & Transaction Analysis</h2>
-          <p className="text-muted mb-0">Detect early churn signals from usage data. Find behavioral shifts that predict churn before it happens.</p>
+          <p className="text-muted mb-0">
+            {user?.role === 'retentionOfficer' 
+              ? 'Analyze your assigned customers and create tasks. Customers with active tasks appear in "My Tasks" page.'
+              : 'Detect early churn signals from usage data. Find behavioral shifts that predict churn before it happens.'}
+          </p>
         </div>
         {customers.length > 0 && (
           <button className="btn btn-success" onClick={handleExport}>
@@ -469,77 +525,50 @@ const Analysis = () => {
           <strong>No data available.</strong> Click "Apply Filters" to load customer data for analysis, or the page will automatically load up to 500 customers.
         </div>
       ) : analysis && (
-        <div className="row mb-3 g-2">
-          <div className="col-md-3">
-            <div className="card border-primary h-100" style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              <div className="card-body p-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <p className="text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: '500' }}>Total Customers</p>
-                    <h4 className="mb-0 text-primary" style={{ fontSize: '1.5rem', fontWeight: '700' }}>{analysis.total}</h4>
-                  </div>
-                  <div className="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <MdPeople className="text-primary" style={{ fontSize: '1.5rem' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div className="row mb-4">
+          <div className="col-md-3 mb-3">
+            <ChurnOverviewCard
+              title="Total Customers"
+              value={analysis.total}
+              change="In view"
+              trend="up"
+              icon="people"
+              color="primary"
+              delay={0}
+            />
           </div>
-          <div className="col-md-3">
-            <div className="card border-danger h-100" style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              <div className="card-body p-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <p className="text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: '500' }}>High Risk</p>
-                    <h4 className="mb-0 text-danger" style={{ fontSize: '1.5rem', fontWeight: '700' }}>{analysis.highRisk}</h4>
-                    <small className="text-muted" style={{ fontSize: '0.7rem' }}>
-                      {analysis.total > 0 ? ((analysis.highRisk / analysis.total) * 100).toFixed(1) : 0}%
-                    </small>
-                  </div>
-                  <div className="bg-danger bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <MdWarning className="text-danger" style={{ fontSize: '1.5rem' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="col-md-3 mb-3">
+            <ChurnOverviewCard
+              title="High Risk"
+              value={analysis.highRisk}
+              change={analysis.total > 0 ? `${((analysis.highRisk / analysis.total) * 100).toFixed(1)}%` : '0%'}
+              trend="down"
+              icon="warning"
+              color="danger"
+              delay={100}
+            />
           </div>
-          <div className="col-md-3">
-            <div className="card border-warning h-100" style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              <div className="card-body p-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <p className="text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: '500' }}>Avg Churn Score</p>
-                    <h4 className="mb-0 text-warning" style={{ fontSize: '1.5rem', fontWeight: '700' }}>{analysis.avgChurnScore.toFixed(1)}%</h4>
-                    <small className="text-muted" style={{ fontSize: '0.65rem' }}>
-                      M: {analysis.mediumRisk} | L: {analysis.lowRisk}
-                    </small>
-                  </div>
-                  <div className="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <MdTrendingUp className="text-warning" style={{ fontSize: '1.5rem' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="col-md-3 mb-3">
+            <ChurnOverviewCard
+              title="Avg Churn Score"
+              value={`${analysis.avgChurnScore.toFixed(1)}%`}
+              change={`M: ${analysis.mediumRisk} | L: ${analysis.lowRisk}`}
+              trend="up"
+              icon="trending-up"
+              color="warning"
+              delay={200}
+            />
           </div>
-          <div className="col-md-3">
-            <div className="card border-success h-100" style={{ boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              <div className="card-body p-3">
-                <div className="d-flex align-items-center justify-content-between">
-                  <div>
-                    <p className="text-muted mb-1" style={{ fontSize: '0.75rem', fontWeight: '500' }}>Total Balance</p>
-                    <h4 className="mb-0 text-success" style={{ fontSize: '1.25rem', fontWeight: '700' }}>
-                      {(analysis.totalBalance / 1000000).toFixed(1)}M
-                    </h4>
-                    <small className="text-muted" style={{ fontSize: '0.65rem' }}>
-                      Avg: {(analysis.avgBalance / 1000000).toFixed(1)}M
-                    </small>
-                  </div>
-                  <div className="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '48px', height: '48px' }}>
-                    <MdBarChart className="text-success" style={{ fontSize: '1.5rem' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="col-md-3 mb-3">
+            <ChurnOverviewCard
+              title="Total Balance"
+              value={`${(analysis.totalBalance / 1000000).toFixed(1)}M`}
+              change={`Avg: ${(analysis.avgBalance / 1000000).toFixed(1)}M`}
+              trend="up"
+              icon="bar-chart"
+              color="success"
+              delay={300}
+            />
           </div>
         </div>
       )}
@@ -850,7 +879,39 @@ const Analysis = () => {
       {/* Customer Table */}
       <div className="card">
         <div className="card-header d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Filtered Customers ({customers.length})</h5>
+          <div>
+            <h5 className="mb-0">Filtered Customers ({customers.length})</h5>
+            {customers.length > 0 && (
+              <small className="text-muted">
+                {customers.filter(c => c._metadata?.isRecentPrediction).length} with recent ML predictions
+                {customers.filter(c => !c._metadata?.isRecentPrediction).length > 0 && (
+                  <span className="text-warning ms-2">
+                    • {customers.filter(c => !c._metadata?.isRecentPrediction).length} may need prediction refresh
+                  </span>
+                )}
+              </small>
+            )}
+          </div>
+          {customers.length > 0 && ['retentionAnalyst', 'retentionManager', 'admin'].includes(user?.role) && (
+            <button
+              className="btn btn-sm btn-warning"
+              onClick={handleRefreshPredictions}
+              disabled={refreshingPredictions || loading}
+              title="Refresh predictions for all displayed customers using ML model"
+            >
+              {refreshingPredictions ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-1" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <MdRefresh className="me-1" />
+                  Refresh Predictions
+                </>
+              )}
+            </button>
+          )}
         </div>
         <div className="card-body p-0">
           {loading ? (
@@ -873,7 +934,9 @@ const Analysis = () => {
                     <th width="70" style={{ fontSize: '0.7rem', padding: '0.5rem 0.25rem' }}>Segment</th>
                     <th width="80" style={{ fontSize: '0.7rem', padding: '0.5rem 0.25rem' }}>Branch</th>
                     <th width="80" style={{ fontSize: '0.7rem', padding: '0.5rem 0.25rem' }}>Product</th>
-                    <th width="70" style={{ fontSize: '0.7rem', padding: '0.5rem 0.25rem' }}>Churn</th>
+                    {user?.role === 'retentionOfficer' && (
+                      <th width="100" style={{ fontSize: '0.7rem', padding: '0.5rem 0.25rem' }} title="Assigned Date">Assigned</th>
+                    )}
                     <th width="50" style={{ fontSize: '0.7rem', padding: '0.5rem 0.25rem' }}>Risk</th>
                     <th width="75" style={{ fontSize: '0.7rem', padding: '0.5rem 0.25rem' }}>Balance</th>
                     <th width="90" style={{ fontSize: '0.7rem', padding: '0.5rem 0.25rem' }}>Actions</th>
@@ -903,14 +966,13 @@ const Analysis = () => {
                           {customer.product_type?.length > 8 ? `${customer.product_type.substring(0, 8)}...` : customer.product_type || '-'}
                         </small>
                       </td>
-                      <td style={{ padding: '0.5rem 0.25rem' }}>
-                        <span className={`badge ${
-                          (parseFloat(customer.churn_score) || 0) >= 70 ? 'bg-danger' :
-                          (parseFloat(customer.churn_score) || 0) >= 50 ? 'bg-warning' : 'bg-success'
-                        }`} style={{ fontSize: '0.65rem', padding: '0.15rem 0.3rem' }}>
-                          {(parseFloat(customer.churn_score) || 0).toFixed(0)}%
-                        </span>
-                      </td>
+                      {user?.role === 'retentionOfficer' && (
+                        <td style={{ padding: '0.5rem 0.25rem' }}>
+                          <small className="text-muted" style={{ fontSize: '0.65rem' }} title={`Assigned: ${customer.assigned_at ? new Date(customer.assigned_at).toLocaleString() : 'N/A'}`}>
+                            {customer.assigned_at ? new Date(customer.assigned_at).toLocaleDateString() : '-'}
+                          </small>
+                        </td>
+                      )}
                       <td style={{ padding: '0.5rem 0.25rem' }}>
                         <span className={`badge ${
                           customer.risk_level === 'high' ? 'bg-danger' :

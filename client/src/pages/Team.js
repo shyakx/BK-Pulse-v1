@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { MdPeople, MdPerson, MdArrowForward, MdTrendingUp, MdWarning, MdCheckCircle } from 'react-icons/md';
 import api from '../services/api';
+import ChurnOverviewCard from '../components/Dashboard/ChurnOverviewCard';
 
 const Team = () => {
   const { user } = useAuth();
@@ -81,62 +82,48 @@ const Team = () => {
       {/* Team Overview Cards */}
       <div className="row mb-4">
         <div className="col-md-3 mb-3">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">Total Team Members</p>
-                  <h3 className="mb-0">{team.length}</h3>
-                </div>
-                <MdPeople className="text-primary" style={{ fontSize: '2.5rem' }} />
-              </div>
-            </div>
-          </div>
+          <ChurnOverviewCard
+            title="Total Team Members"
+            value={team.length}
+            change="Active officers"
+            trend="up"
+            icon="people"
+            color="primary"
+            delay={0}
+          />
         </div>
         <div className="col-md-3 mb-3">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">Total Customers Assigned</p>
-                  <h3 className="mb-0">
-                    {team.reduce((sum, member) => sum + member.assignedCustomers, 0)}
-                  </h3>
-                </div>
-                <MdPerson className="text-info" style={{ fontSize: '2.5rem' }} />
-              </div>
-            </div>
-          </div>
+          <ChurnOverviewCard
+            title="Total Customers Assigned"
+            value={team.reduce((sum, member) => sum + member.assignedCustomers, 0)}
+            change="Across all officers"
+            trend="up"
+            icon="people"
+            color="info"
+            delay={100}
+          />
         </div>
         <div className="col-md-3 mb-3">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">High Risk Cases</p>
-                  <h3 className="mb-0 text-danger">
-                    {team.reduce((sum, member) => sum + member.highRiskCustomers, 0)}
-                  </h3>
-                </div>
-                <MdWarning className="text-danger" style={{ fontSize: '2.5rem' }} />
-              </div>
-            </div>
-          </div>
+          <ChurnOverviewCard
+            title="High Risk Cases"
+            value={team.reduce((sum, member) => sum + member.highRiskCustomers, 0)}
+            change="Requiring attention"
+            trend="down"
+            icon="warning"
+            color="danger"
+            delay={200}
+          />
         </div>
         <div className="col-md-3 mb-3">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">Completed Tasks</p>
-                  <h3 className="mb-0 text-success">
-                    {team.reduce((sum, member) => sum + member.completedTasks, 0)}
-                  </h3>
-                </div>
-                <MdCheckCircle className="text-success" style={{ fontSize: '2.5rem' }} />
-              </div>
-            </div>
-          </div>
+          <ChurnOverviewCard
+            title="Completed Tasks"
+            value={team.reduce((sum, member) => sum + member.completedTasks, 0)}
+            change="Team total"
+            trend="up"
+            icon="check"
+            color="success"
+            delay={300}
+          />
         </div>
       </div>
 
@@ -190,30 +177,50 @@ const Team = () => {
                   <h5 className="mb-0">{selectedMember.name} - Overview</h5>
                 </div>
                 <div className="card-body">
-                  <div className="row text-center">
-                    <div className="col-3">
-                      <div>
-                        <h4 className="mb-0">{selectedMember.assignedCustomers}</h4>
-                        <small className="text-muted">Assigned</small>
-                      </div>
+                  <div className="row">
+                    <div className="col-3 mb-3">
+                      <ChurnOverviewCard
+                        title="Assigned"
+                        value={selectedMember.assignedCustomers}
+                        change="Customers"
+                        trend="up"
+                        icon="people"
+                        color="primary"
+                        delay={0}
+                      />
                     </div>
-                    <div className="col-3">
-                      <div>
-                        <h4 className="mb-0 text-danger">{selectedMember.highRiskCustomers}</h4>
-                        <small className="text-muted">High Risk</small>
-                      </div>
+                    <div className="col-3 mb-3">
+                      <ChurnOverviewCard
+                        title="High Risk"
+                        value={selectedMember.highRiskCustomers}
+                        change="Requiring attention"
+                        trend="down"
+                        icon="warning"
+                        color="danger"
+                        delay={100}
+                      />
                     </div>
-                    <div className="col-3">
-                      <div>
-                        <h4 className="mb-0">{selectedMember.retentionRate}%</h4>
-                        <small className="text-muted">Retention Rate</small>
-                      </div>
+                    <div className="col-3 mb-3">
+                      <ChurnOverviewCard
+                        title="Retention Rate"
+                        value={`${selectedMember.retentionRate}%`}
+                        change="Success rate"
+                        trend="up"
+                        icon="trending-up"
+                        color="success"
+                        delay={200}
+                      />
                     </div>
-                    <div className="col-3">
-                      <div>
-                        <h4 className="mb-0">{selectedMember.notesCount}</h4>
-                        <small className="text-muted">Notes</small>
-                      </div>
+                    <div className="col-3 mb-3">
+                      <ChurnOverviewCard
+                        title="Notes"
+                        value={selectedMember.notesCount}
+                        change="Total notes"
+                        trend="up"
+                        icon="check"
+                        color="info"
+                        delay={300}
+                      />
                     </div>
                   </div>
                 </div>
@@ -263,7 +270,7 @@ const Team = () => {
                                   {customer.risk_level}
                                 </span>
                               </td>
-                              <td>{customer.churn_score.toFixed(1)}%</td>
+                              <td>{(parseFloat(customer.churn_score) || 0).toFixed(1)}%</td>
                               <td>
                                 <Link to={`/customers/${customer.id}`} className="btn btn-sm btn-outline-primary">
                                   View

@@ -321,15 +321,9 @@ router.post('/', authenticateToken, async (req, res) => {
       [customerDbId, officerId, action_type, description || `Task for customer ${customerDbId}`, status, finalPriority, finalDueDate || null]
     );
 
-    // Remove assignment if it exists (for Analysis page workflow)
-    if (customerDbId && req.user.role === 'retentionOfficer') {
-      await pool.query(
-        `UPDATE customer_assignments 
-         SET is_active = false 
-         WHERE customer_id = $1 AND officer_id = $2 AND is_active = true`,
-        [customerDbId, officerId]
-      );
-    }
+    // Keep assignment active when task is created (assignments don't expire when converted to task)
+    // The assignment will be filtered out from Analysis page by excluding customers with active tasks
+    // This allows the assignment to remain for tracking purposes while removing it from the view
 
     // Get full task with customer details
     const fullResult = await pool.query(

@@ -50,6 +50,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/team', require('./routes/team'));
 app.use('/api/recommendations', require('./routes/recommendations'));
 app.use('/api/reports', require('./routes/reports'));
+app.use('/api/model-validation', require('./routes/modelValidation'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

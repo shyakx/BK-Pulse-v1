@@ -276,9 +276,6 @@ const RetentionNotes = () => {
                     <MdAdd className="me-2" />
                     Add Your First Note
                   </button>
-                  <p className="text-muted small mt-3 mb-0">
-                    <em>Or run the seed script: <code>node server/scripts/seedRetentionNotes.js</code></em>
-                  </p>
                 </div>
               )}
             </div>

@@ -320,7 +320,7 @@ const Reports = () => {
                           <td>{customer.email || '-'}</td>
                           <td>{customer.segment || '-'}</td>
                           <td>{customer.branch || '-'}</td>
-                          <td>{customer.churn_score.toFixed(1)}%</td>
+                          <td>{(parseFloat(customer.churn_score) || 0).toFixed(1)}%</td>
                           <td>
                             <span className={`badge ${
                               customer.risk_level === 'high' ? 'bg-danger' :

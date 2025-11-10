@@ -12,7 +12,8 @@ from pathlib import Path
 
 # Paths
 BASE_DIR = Path(__file__).parent
-MODEL_PATH = BASE_DIR / '../data/models/gradient_boosting_best.pkl'
+# Use the latest best model (LightGBM - trained on corrected FINAL dataset)
+MODEL_PATH = BASE_DIR / '../data/models/lightgbm_best.pkl'
 SCALER_PATH = BASE_DIR / '../data/processed/scaler.pkl'
 ENCODER_PATH = BASE_DIR / '../data/processed/encoders.pkl'
 
@@ -107,6 +108,7 @@ def prepare_features(customer_data, encoders):
         df['Last_Transaction_Year'] = 0
     
     # Encode categorical variables
+    # NOTE: Account_Status removed to prevent data leakage (it's derived from Days_Since_Last_Transaction)
     categorical_cols = {
         'Customer_Segment': 'Customer_Segment',
         'Gender': 'Gender',
@@ -114,7 +116,7 @@ def prepare_features(customer_data, encoders):
         'Account_Type': 'Account_Type',
         'Branch': 'Branch',
         'Currency': 'Currency',
-        'Account_Status': 'Account_Status'
+        # 'Account_Status': 'Account_Status'  # REMOVED: Data leakage
     }
     
     for col_name, col_key in categorical_cols.items():
@@ -130,12 +132,13 @@ def prepare_features(customer_data, encoders):
             else:
                 df[col_name + '_encoded'] = 0
     
-    # Feature columns (must match training)
+    # Feature columns (must match training - Account_Status_encoded removed to prevent data leakage)
     feature_cols = [
         'Customer_Segment_encoded', 'Gender_encoded', 'Age', 'Nationality_encoded',
         'Account_Type_encoded', 'Branch_encoded', 'Currency_encoded',
         'Balance', 'Tenure_Months', 'Num_Products', 'Has_Credit_Card',
-        'Account_Status_encoded', 'Transaction_Frequency', 'Average_Transaction_Value',
+        # 'Account_Status_encoded',  # REMOVED: Data leakage - derived from Days_Since_Last_Transaction
+        'Transaction_Frequency', 'Average_Transaction_Value',
         'Mobile_Banking_Usage', 'Branch_Visits', 'Complaint_History',
         'Account_Age_Months', 'Days_Since_Last_Transaction', 'Activity_Score',
         'Account_Open_Month', 'Account_Open_Year', 'Last_Transaction_Month', 'Last_Transaction_Year'
@@ -219,10 +222,14 @@ def predict_churn(customer_data, include_shap=False):
     churn_probability = model.predict_proba(features_scaled)[0][1]
     churn_prediction = model.predict(features_scaled)[0]
     
+    # Calculate churn score as percentage (0-100)
+    # Use round() instead of int() to preserve one decimal place for better precision
+    churn_score = round(churn_probability * 100, 1)
+    
     result = {
         'churn_probability': float(churn_probability),
         'churn_prediction': int(churn_prediction),
-        'churn_score': int(churn_probability * 100),  # Convert to 0-100 scale
+        'churn_score': churn_score,  # 0-100 scale with 1 decimal place
         'risk_level': 'high' if churn_probability > 0.7 else ('medium' if churn_probability > 0.4 else 'low')
     }
     

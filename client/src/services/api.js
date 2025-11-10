@@ -86,12 +86,15 @@ export const api = {
     return apiClient.get('/customers', { params });
   },
 
-  getCustomer: (id) => {
-    return apiClient.get(`/customers/${id}`);
+  getCustomer: (id, params = {}) => {
+    return apiClient.get(`/customers/${id}`, { params });
   },
 
   updateCustomerPrediction: (id) => {
-    return apiClient.post(`/customers/${id}/predict`);
+    // Use longer timeout for prediction calls (60 seconds)
+    return apiClient.post(`/customers/${id}/predict`, {}, {
+      timeout: 60000
+    });
   },
 
   getCustomerStats: () => {
@@ -243,6 +246,15 @@ export const api = {
   // SHAP Values
   getCustomerSHAP: (customerId) => {
     return apiClient.get(`/customers/${customerId}/shap`);
+  },
+
+  // Model Validation
+  getModelValidationMetrics: () => {
+    return apiClient.get('/model-validation/metrics');
+  },
+
+  getModelValidationComparison: (params = {}) => {
+    return apiClient.get('/model-validation/comparison', { params });
   },
 
   // Recommendations

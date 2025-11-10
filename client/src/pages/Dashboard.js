@@ -20,7 +20,34 @@ const Dashboard = () => {
     try {
       const response = await api.getDashboard();
       if (response.success || response.assignedCustomers !== undefined) {
-        setDashboardData(response);
+        // Normalize alerts data for charts (handle both object and array formats)
+        let normalizedAlerts = { highRisk: 0, mediumRisk: 0, lowRisk: 0 };
+        
+        if (response.alerts) {
+          if (Array.isArray(response.alerts)) {
+            // Convert array format [{label, value}] to object format
+            normalizedAlerts = response.alerts.reduce((acc, alert) => {
+              const key = alert.label?.toLowerCase().replace(/\s+/g, '') || '';
+              if (key.includes('high')) acc.highRisk = alert.value || 0;
+              else if (key.includes('medium')) acc.mediumRisk = alert.value || 0;
+              else if (key.includes('low')) acc.lowRisk = alert.value || 0;
+              return acc;
+            }, { highRisk: 0, mediumRisk: 0, lowRisk: 0 });
+          } else {
+            // Already in object format
+            normalizedAlerts = {
+              highRisk: response.alerts.highRisk || 0,
+              mediumRisk: response.alerts.mediumRisk || 0,
+              lowRisk: response.alerts.lowRisk || 0
+            };
+          }
+        }
+        
+        // Ensure all data is properly formatted
+        setDashboardData({
+          ...response,
+          alerts: normalizedAlerts
+        });
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -184,10 +211,10 @@ const Dashboard = () => {
             
             <div className="row">
               <div className="col-md-8 mb-4">
-                <AlertsChart title="Segment Performance" data={dashboardData?.segmentPerformance} />
+                <AlertsChart title="Customer Risk Trends" data={dashboardData} />
               </div>
               <div className="col-md-4 mb-4">
-                <AlertsChart type="doughnut" title="Risk Distribution" data={dashboardData?.riskDistribution} />
+                <AlertsChart type="doughnut" title="Risk Distribution" data={dashboardData} />
               </div>
             </div>
           </>
@@ -368,7 +395,13 @@ const Dashboard = () => {
           </h2>
           <p className="text-muted mb-0">
             {user?.role === 'retentionAnalyst' 
-              ? "High-level churn trends and KPIs. Quickly check today's churn numbers, top drivers, and customer loss impact."
+              ? "High-level churn trends and KPIs. Monitor customer risk levels, model performance, and segment analysis."
+              : user?.role === 'retentionOfficer'
+              ? "Track your assigned high-risk customers, retention activities, and performance metrics."
+              : user?.role === 'retentionManager'
+              ? "Overview of team performance, customer risk trends, and revenue impact across all customers."
+              : user?.role === 'admin'
+              ? "System-wide dashboard with customer metrics, system health, and user activity monitoring."
               : `Here's what's happening with your ${user?.role?.replace(/([A-Z])/g, ' $1').trim().toLowerCase()} dashboard today.`}
           </p>
         </div>

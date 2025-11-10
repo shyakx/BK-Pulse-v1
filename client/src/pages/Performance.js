@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { MdTrendingUp, MdPeople, MdCheckCircle, MdTimer } from 'react-icons/md';
 import api from '../services/api';
+import ChurnOverviewCard from '../components/Dashboard/ChurnOverviewCard';
 
 const Performance = () => {
   const { user } = useAuth();
@@ -19,14 +19,22 @@ const Performance = () => {
     try {
       setLoading(true);
       
-      // Fetch performance data
-      const [performanceResponse, leaderboardResponse] = await Promise.all([
+      // Fetch performance data - make leaderboard non-blocking
+      const [performanceResponse, leaderboardResponse] = await Promise.allSettled([
         api.getPerformance(),
-        api.getLeaderboard({ period: 'month' })
+        api.getLeaderboard({ period: 'month' }).catch(err => {
+          console.warn('Leaderboard fetch failed:', err);
+          return { success: false, leaderboard: [] };
+        })
       ]);
 
-      if (performanceResponse.success && performanceResponse.performance) {
-        const perf = performanceResponse.performance;
+      // Handle performance response
+      const perfResult = performanceResponse.status === 'fulfilled' 
+        ? performanceResponse.value 
+        : { success: false };
+      
+      if (perfResult.success && perfResult.performance) {
+        const perf = perfResult.performance;
         
         // Map API response to UI format
         setPerformance({
@@ -54,13 +62,21 @@ const Performance = () => {
         }
       }
 
-      if (leaderboardResponse.success && leaderboardResponse.leaderboard) {
+      // Handle leaderboard response (non-blocking)
+      const leaderboardResult = leaderboardResponse.status === 'fulfilled' 
+        ? leaderboardResponse.value 
+        : { success: false, leaderboard: [] };
+      
+      if (leaderboardResult.success && leaderboardResult.leaderboard) {
         // Map leaderboard to UI format
-        setLeaderboard(leaderboardResponse.leaderboard.map(officer => ({
-          rank: officer.rank,
+        setLeaderboard(leaderboardResult.leaderboard.map((officer, index) => ({
+          rank: index + 1,
           name: officer.officer_name,
           retentionRate: officer.completion_rate || 0
         })));
+      } else {
+        // Set empty leaderboard if fetch failed
+        setLeaderboard([]);
       }
     } catch (err) {
       console.error('Error fetching performance:', err);
@@ -93,60 +109,48 @@ const Performance = () => {
       {/* Performance KPIs */}
       <div className="row mb-4">
         <div className="col-md-3 mb-3">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">Tasks Completed</p>
-                  <h3 className="mb-0">{performance?.tasksCompleted || 0}</h3>
-                  <small className="text-muted">Out of {performance?.tasksTotal || 0} total</small>
-                </div>
-                <MdCheckCircle className="text-primary" style={{ fontSize: '2.5rem' }} />
-              </div>
-            </div>
-          </div>
+          <ChurnOverviewCard
+            title="Tasks Completed"
+            value={performance?.tasksCompleted || 0}
+            change={`Out of ${performance?.tasksTotal || 0} total`}
+            trend="up"
+            icon="check"
+            color="primary"
+            delay={0}
+          />
         </div>
         <div className="col-md-3 mb-3">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">Retention Notes</p>
-                  <h3 className="mb-0">{performance?.notesTotal || 0}</h3>
-                  <small className="text-muted">Total notes created</small>
-                </div>
-                <MdPeople className="text-success" style={{ fontSize: '2.5rem' }} />
-              </div>
-            </div>
-          </div>
+          <ChurnOverviewCard
+            title="Retention Notes"
+            value={performance?.notesTotal || 0}
+            change="Total notes created"
+            trend="up"
+            icon="people"
+            color="success"
+            delay={100}
+          />
         </div>
         <div className="col-md-3 mb-3">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">Task Completion Rate</p>
-                  <h3 className="mb-0">{performance?.retentionRate?.toFixed(1) || 0}%</h3>
-                  <small className="text-muted">Completion rate</small>
-                </div>
-                <MdTrendingUp className="text-success" style={{ fontSize: '2.5rem' }} />
-              </div>
-            </div>
-          </div>
+          <ChurnOverviewCard
+            title="Task Completion Rate"
+            value={performance?.retentionRate ? `${performance.retentionRate.toFixed(1)}%` : '0%'}
+            change="Completion rate"
+            trend="up"
+            icon="trending-up"
+            color="success"
+            delay={200}
+          />
         </div>
         <div className="col-md-3 mb-3">
-          <div className="card">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between">
-                <div>
-                  <p className="text-muted small mb-1">Assigned Customers</p>
-                  <h3 className="mb-0">{performance?.customersTotal || 0}</h3>
-                  <small className="text-muted">{performance?.highRiskCustomers || 0} high risk</small>
-                </div>
-                <MdPeople className="text-info" style={{ fontSize: '2.5rem' }} />
-              </div>
-            </div>
-          </div>
+          <ChurnOverviewCard
+            title="Assigned Customers"
+            value={performance?.customersTotal || 0}
+            change={`${performance?.highRiskCustomers || 0} high risk`}
+            trend="up"
+            icon="people"
+            color="info"
+            delay={300}
+          />
         </div>
       </div>
 

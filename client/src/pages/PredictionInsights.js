@@ -42,10 +42,52 @@ const PredictionInsights = () => {
       
       // Calculate segmentation from results
       const predictionsData = response.predictions || [];
-      const validPredictions = predictionsData.filter(p => !p.error && p.churn_score !== undefined);
+      console.log('[PredictionInsights] Received predictions:', {
+        total: predictionsData.length,
+        sample: predictionsData.slice(0, 3),
+        summary: response.summary
+      });
+      
+      const validPredictions = predictionsData.filter(p => {
+        const isValid = !p.error && p.churn_score !== undefined && p.churn_score !== null;
+        if (!isValid) {
+          console.log('[PredictionInsights] Invalid prediction:', {
+            customer_id: p.customer_id,
+            hasError: !!p.error,
+            error: p.error,
+            churn_score: p.churn_score,
+            churn_score_type: typeof p.churn_score
+          });
+        }
+        return isValid;
+      });
+      
+      console.log('[PredictionInsights] Valid predictions:', validPredictions.length, 'out of', predictionsData.length);
       
       if (validPredictions.length === 0) {
-        throw new Error('No valid predictions returned. Try running predictions again.');
+        // Provide more detailed error message using server summary if available
+        const summary = response.summary || {};
+        const errorCount = summary.errors || predictionsData.filter(p => p.error).length;
+        const noScoreCount = summary.noScore || predictionsData.filter(p => !p.error && (p.churn_score === undefined || p.churn_score === null)).length;
+        const totalCount = summary.total || predictionsData.length;
+        
+        let errorMessage = 'No valid predictions returned. ';
+        if (totalCount === 0) {
+          errorMessage += 'No predictions were returned from the server.';
+        } else if (errorCount > 0) {
+          errorMessage += `${errorCount} of ${totalCount} predictions failed. `;
+          if (errorCount === totalCount) {
+            errorMessage += 'All predictions failed. This may indicate an issue with the ML model or Python environment. Check server logs for details.';
+          } else if (noScoreCount > 0) {
+            errorMessage += `${noScoreCount} predictions returned without churn scores.`;
+          }
+        } else if (noScoreCount > 0) {
+          errorMessage += `All ${totalCount} predictions returned without churn scores. This may indicate an issue with the prediction script.`;
+        } else {
+          errorMessage += 'Unexpected error: predictions were returned but none are valid.';
+        }
+        errorMessage += ' Try running predictions again or check if the ML model is properly configured.';
+        throw new Error(errorMessage);
       }
 
       // Fetch customer details for predictions
@@ -82,11 +124,22 @@ const PredictionInsights = () => {
       
       setPredictions(enrichedPredictions);
       
-      const critical = validPredictions.filter(p => p.churn_score >= 70);
-      const high = validPredictions.filter(p => p.churn_score >= 50 && p.churn_score < 70);
-      const medium = validPredictions.filter(p => p.churn_score >= 40 && p.churn_score < 50);
-      const low = validPredictions.filter(p => p.churn_score < 40);
-      const avgChurnProb = validPredictions.reduce((sum, p) => sum + (p.churn_score || 0), 0) / validPredictions.length;
+      // Calculate segmentation using enriched predictions (which have churn_score from validPredictions)
+      const critical = enrichedPredictions.filter(p => (parseFloat(p.churn_score) || 0) >= 70);
+      const high = enrichedPredictions.filter(p => (parseFloat(p.churn_score) || 0) >= 50 && (parseFloat(p.churn_score) || 0) < 70);
+      const medium = enrichedPredictions.filter(p => (parseFloat(p.churn_score) || 0) >= 40 && (parseFloat(p.churn_score) || 0) < 50);
+      const low = enrichedPredictions.filter(p => (parseFloat(p.churn_score) || 0) < 40);
+      const avgChurnProb = enrichedPredictions.length > 0 
+        ? enrichedPredictions.reduce((sum, p) => sum + (parseFloat(p.churn_score) || 0), 0) / enrichedPredictions.length 
+        : 0;
+      
+      console.log('[PredictionInsights] Segmentation:', {
+        critical: critical.length,
+        high: high.length,
+        medium: medium.length,
+        low: low.length,
+        avgChurnProb: avgChurnProb.toFixed(2)
+      });
 
       // Calculate at-risk balance
       const criticalBalance = critical.reduce((sum, p) => {
@@ -104,35 +157,35 @@ const PredictionInsights = () => {
       const totalAtRiskBalance = criticalBalance + highBalance;
 
       setResults({
-        totalAnalyzed: response.total || validPredictions.length,
+        totalAnalyzed: response.total || enrichedPredictions.length,
         predictedChurners: critical.length + high.length,
         avgChurnProb: avgChurnProb.toFixed(1),
         totalAtRiskBalance: totalAtRiskBalance,
         segmentation: {
           critical: { 
             count: critical.length, 
-            percent: validPredictions.length > 0 ? ((critical.length / validPredictions.length) * 100).toFixed(2) : 0,
+            percent: enrichedPredictions.length > 0 ? ((critical.length / enrichedPredictions.length) * 100).toFixed(2) : 0,
             avgBalance: critical.length > 0 ? (criticalBalance / critical.length).toFixed(0) : 0,
             avgProb: critical.length > 0 ? (critical.reduce((sum, p) => sum + p.churn_score, 0) / critical.length).toFixed(1) : 0,
             customers: critical
           },
           high: { 
             count: high.length, 
-            percent: validPredictions.length > 0 ? ((high.length / validPredictions.length) * 100).toFixed(2) : 0,
+            percent: enrichedPredictions.length > 0 ? ((high.length / enrichedPredictions.length) * 100).toFixed(2) : 0,
             avgBalance: high.length > 0 ? (highBalance / high.length).toFixed(0) : 0,
             avgProb: high.length > 0 ? (high.reduce((sum, p) => sum + p.churn_score, 0) / high.length).toFixed(1) : 0,
             customers: high
           },
           medium: { 
             count: medium.length, 
-            percent: validPredictions.length > 0 ? ((medium.length / validPredictions.length) * 100).toFixed(2) : 0,
+            percent: enrichedPredictions.length > 0 ? ((medium.length / enrichedPredictions.length) * 100).toFixed(2) : 0,
             avgBalance: 0,
             avgProb: medium.length > 0 ? (medium.reduce((sum, p) => sum + p.churn_score, 0) / medium.length).toFixed(1) : 0,
             customers: medium
           },
           low: { 
             count: low.length, 
-            percent: validPredictions.length > 0 ? ((low.length / validPredictions.length) * 100).toFixed(2) : 0,
+            percent: enrichedPredictions.length > 0 ? ((low.length / enrichedPredictions.length) * 100).toFixed(2) : 0,
             avgBalance: 0,
             avgProb: 0,
             customers: low
@@ -169,11 +222,35 @@ const PredictionInsights = () => {
       setCustomerPrediction(null);
       setCustomerShap(null);
 
-      // Fetch customer details
-      const customerResponse = await api.getCustomer(customerIdInput.trim());
+      // Normalize customer ID - remove CUST prefix if present
+      let customerId = customerIdInput.trim();
+      const originalId = customerId;
+      
+      // Remove CUST prefix if present
+      if (customerId.toUpperCase().startsWith('CUST')) {
+        customerId = customerId.substring(4);
+      }
+
+      // Fetch customer details - try normalized ID first
+      let customerResponse;
+      try {
+        customerResponse = await api.getCustomer(customerId);
+      } catch (firstError) {
+        // If that fails and original had CUST prefix, try original
+        if (originalId !== customerId) {
+          try {
+            customerResponse = await api.getCustomer(originalId);
+            customerId = originalId; // Use original if it works
+          } catch (secondError) {
+            throw new Error(`Customer not found. Valid customer IDs are between 100000-149999. You entered: ${customerIdInput.trim()}`);
+          }
+        } else {
+          throw new Error(`Customer not found. Valid customer IDs are between 100000-149999. You entered: ${customerIdInput.trim()}`);
+        }
+      }
       
       if (!customerResponse.success || !customerResponse.customer) {
-        throw new Error('Customer not found. Please check the customer ID and try again.');
+        throw new Error(`Customer not found. Valid customer IDs are between 100000-149999. You entered: ${customerIdInput.trim()}`);
       }
 
       const customer = customerResponse.customer;
@@ -181,18 +258,21 @@ const PredictionInsights = () => {
 
       // Automatically run prediction if customer is found
       try {
-        const predictResponse = await api.updateCustomerPrediction(customerIdInput.trim());
+        const predictResponse = await api.updateCustomerPrediction(customerId);
         if (predictResponse.success && predictResponse.prediction) {
           setCustomerPrediction(predictResponse.prediction);
         }
       } catch (predictError) {
         console.warn('Could not generate prediction:', predictError);
-        // Continue without prediction
+        // Show warning but continue without prediction
+        if (predictError.isTimeout) {
+          alert('Prediction is taking longer than expected. The customer data is loaded, but prediction may need to be run manually.');
+        }
       }
 
       // Try to fetch SHAP values
       try {
-        const shapResponse = await api.getCustomerSHAP(customerIdInput.trim());
+        const shapResponse = await api.getCustomerSHAP(customerId);
         if (shapResponse.success && shapResponse.shap_values) {
           setCustomerShap(shapResponse.shap_values);
         }
@@ -273,7 +353,7 @@ const PredictionInsights = () => {
     if (format === 'csv') {
       let csvContent = 'Customer ID,Name,Email,Segment,Branch,Churn Score (%),Risk Level,Account Balance\n';
       sorted.forEach(p => {
-        csvContent += `${p.customer_id || ''},${p.customer_name || ''},${p.email || ''},${p.segment || ''},${p.branch || ''},${(p.churn_score || 0).toFixed(1)},${p.risk_level || ''},${(p.account_balance || 0).toFixed(2)}\n`;
+        csvContent += `${p.customer_id || ''},${p.customer_name || ''},${p.email || ''},${p.segment || ''},${p.branch || ''},${(parseFloat(p.churn_score) || 0).toFixed(1)},${p.risk_level || ''},${(p.account_balance || 0).toFixed(2)}\n`;
       });
       
       const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -287,7 +367,7 @@ const PredictionInsights = () => {
       // For Excel, we'll create a CSV with .xls extension (basic Excel support)
       let csvContent = 'Customer ID\tName\tEmail\tSegment\tBranch\tChurn Score (%)\tRisk Level\tAccount Balance\n';
       sorted.forEach(p => {
-        csvContent += `${p.customer_id || ''}\t${p.customer_name || ''}\t${p.email || ''}\t${p.segment || ''}\t${p.branch || ''}\t${(p.churn_score || 0).toFixed(1)}\t${p.risk_level || ''}\t${(p.account_balance || 0).toFixed(2)}\n`;
+        csvContent += `${p.customer_id || ''}\t${p.customer_name || ''}\t${p.email || ''}\t${p.segment || ''}\t${p.branch || ''}\t${(parseFloat(p.churn_score) || 0).toFixed(1)}\t${p.risk_level || ''}\t${(p.account_balance || 0).toFixed(2)}\n`;
       });
       
       const blob = new Blob([csvContent], { type: 'application/vnd.ms-excel' });
@@ -314,7 +394,7 @@ const PredictionInsights = () => {
       pdfContent += `Customer ID | Name | Churn Score | Risk Level | Balance\n`;
       pdfContent += `-`.repeat(80) + `\n`;
       sorted.slice(0, 100).forEach(p => {
-        pdfContent += `${p.customer_id || ''} | ${p.customer_name || ''} | ${(p.churn_score || 0).toFixed(1)}% | ${p.risk_level || ''} | RWF ${(p.account_balance || 0).toLocaleString()}\n`;
+        pdfContent += `${p.customer_id || ''} | ${p.customer_name || ''} | ${(parseFloat(p.churn_score) || 0).toFixed(1)}% | ${p.risk_level || ''} | RWF ${(p.account_balance || 0).toLocaleString()}\n`;
       });
       
       const blob = new Blob([pdfContent], { type: 'text/plain' });
@@ -397,7 +477,7 @@ const PredictionInsights = () => {
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Enter customer ID (e.g., CUST001, 12345)"
+                  placeholder="Enter customer ID (e.g., 100000, 100001, 149999)"
                   value={customerIdInput}
                   onChange={(e) => setCustomerIdInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleLookupCustomer()}
@@ -420,7 +500,7 @@ const PredictionInsights = () => {
                   )}
                 </button>
               </div>
-              <small className="text-muted">Enter a customer ID to view their demographics, transaction history, and churn prediction</small>
+              <small className="text-muted">Enter a customer ID (100000-149999) to view their demographics, transaction history, and churn prediction</small>
             </div>
             <div className="col-md-4 mb-3 d-flex align-items-end">
               <button
@@ -608,16 +688,16 @@ const PredictionInsights = () => {
                   <div className="row">
                     <div className="col-md-4 mb-3">
                       <div className={`card border-${
-                        (customerPrediction.churn_score || 0) >= 70 ? 'danger' :
-                        (customerPrediction.churn_score || 0) >= 50 ? 'warning' : 'success'
+                        (parseFloat(customerPrediction.churn_score) || 0) >= 70 ? 'danger' :
+                        (parseFloat(customerPrediction.churn_score) || 0) >= 50 ? 'warning' : 'success'
                       }`}>
                         <div className="card-body text-center">
                           <p className="text-muted small mb-1">Churn Score</p>
                           <h2 className={`text-${
-                            (customerPrediction.churn_score || 0) >= 70 ? 'danger' :
-                            (customerPrediction.churn_score || 0) >= 50 ? 'warning' : 'success'
+                            (parseFloat(customerPrediction.churn_score) || 0) >= 70 ? 'danger' :
+                            (parseFloat(customerPrediction.churn_score) || 0) >= 50 ? 'warning' : 'success'
                           }`}>
-                            {(customerPrediction.churn_score || 0).toFixed(1)}%
+                            {(parseFloat(customerPrediction.churn_score) || 0).toFixed(1)}%
                           </h2>
                           <span className={`badge bg-${
                             customerPrediction.risk_level === 'high' ? 'danger' :
@@ -1018,11 +1098,11 @@ const PredictionInsights = () => {
                             <td>{pred.segment || '-'}</td>
                             <td>
                               <span className={`badge ${
-                                (pred.churn_score || 0) >= 70 ? 'bg-danger' :
-                                (pred.churn_score || 0) >= 50 ? 'bg-warning' :
-                                (pred.churn_score || 0) >= 40 ? 'bg-info' : 'bg-success'
+                                (parseFloat(pred.churn_score) || 0) >= 70 ? 'bg-danger' :
+                                (parseFloat(pred.churn_score) || 0) >= 50 ? 'bg-warning' :
+                                (parseFloat(pred.churn_score) || 0) >= 40 ? 'bg-info' : 'bg-success'
                               }`}>
-                                {(pred.churn_score || 0).toFixed(1)}%
+                                {(parseFloat(pred.churn_score) || 0).toFixed(1)}%
                               </span>
                             </td>
                             <td>

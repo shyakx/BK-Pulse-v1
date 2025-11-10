@@ -451,7 +451,7 @@ const Recommendations = () => {
                           </Link>
                           <br />
                           <small className="text-muted">
-                            Score: {rec.churn_score.toFixed(1)}% | Risk: {rec.risk_level}
+                            Score: {(parseFloat(rec.churn_score) || 0).toFixed(1)}% | Risk: {rec.risk_level}
                           </small>
                         </td>
                         <td>

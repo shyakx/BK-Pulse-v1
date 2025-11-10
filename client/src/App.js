@@ -32,6 +32,7 @@ const CampaignPerformance = lazy(() => import('./pages/CampaignPerformance'));
 const StrategicAnalytics = lazy(() => import('./pages/StrategicAnalytics'));
 const BudgetROI = lazy(() => import('./pages/BudgetROI'));
 const BackupMaintenance = lazy(() => import('./pages/BackupMaintenance'));
+const ModelValidation = lazy(() => import('./pages/ModelValidation'));
 
 // Loading component
 const LoadingSpinner = () => (
@@ -133,6 +134,11 @@ function App() {
               <Route path="model-insights" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <ModelInsights />
+                </Suspense>
+              } />
+              <Route path="model-validation" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <ModelValidation />
                 </Suspense>
               } />
               <Route path="data-management" element={

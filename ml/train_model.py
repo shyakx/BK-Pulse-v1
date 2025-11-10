@@ -41,9 +41,12 @@ except ImportError:
 
 
 # Configuration
-PROCESSED_DATA_DIR = '../data/processed'
-MODELS_DIR = '../data/models'
-METRICS_DIR = '../data/models/metrics'
+# Use absolute paths
+import os
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROCESSED_DATA_DIR = os.path.join(BASE_DIR, 'data', 'processed')
+MODELS_DIR = os.path.join(BASE_DIR, 'data', 'models')
+METRICS_DIR = os.path.join(BASE_DIR, 'data', 'models', 'metrics')
 
 
 def load_processed_data():
@@ -52,10 +55,10 @@ def load_processed_data():
     
     # Check if files exist
     required_files = [
-        f'{PROCESSED_DATA_DIR}/X_train.csv',
-        f'{PROCESSED_DATA_DIR}/X_test.csv',
-        f'{PROCESSED_DATA_DIR}/y_train.csv',
-        f'{PROCESSED_DATA_DIR}/y_test.csv'
+        os.path.join(PROCESSED_DATA_DIR, 'X_train.csv'),
+        os.path.join(PROCESSED_DATA_DIR, 'X_test.csv'),
+        os.path.join(PROCESSED_DATA_DIR, 'y_train.csv'),
+        os.path.join(PROCESSED_DATA_DIR, 'y_test.csv')
     ]
     
     for file_path in required_files:
@@ -65,11 +68,11 @@ def load_processed_data():
                 "Please run preprocess.py first to generate the processed data files."
             )
     
-    X_train = pd.read_csv(f'{PROCESSED_DATA_DIR}/X_train.csv')
-    X_test = pd.read_csv(f'{PROCESSED_DATA_DIR}/X_test.csv')
+    X_train = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, 'X_train.csv'))
+    X_test = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, 'X_test.csv'))
     # Use iloc[:, 0] to get first column as Series (replaces deprecated squeeze parameter)
-    y_train = pd.read_csv(f'{PROCESSED_DATA_DIR}/y_train.csv').iloc[:, 0]
-    y_test = pd.read_csv(f'{PROCESSED_DATA_DIR}/y_test.csv').iloc[:, 0]
+    y_train = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, 'y_train.csv')).iloc[:, 0]
+    y_test = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, 'y_test.csv')).iloc[:, 0]
     
     print(f"Training set: {len(X_train)} samples")
     print(f"Test set: {len(X_test)} samples")
@@ -94,16 +97,20 @@ def evaluate_model(model, X_train, X_test, y_train, y_test, model_name):
         y_test_proba = None
     
     # Metrics
+    train_acc = accuracy_score(y_train, y_train_pred)
+    test_acc = accuracy_score(y_test, y_test_pred)
+    
     metrics = {
         'model_name': model_name,
-        'train_accuracy': accuracy_score(y_train, y_train_pred),
-        'test_accuracy': accuracy_score(y_test, y_test_pred),
+        'train_accuracy': train_acc,
+        'test_accuracy': test_acc,
         'train_precision': precision_score(y_train, y_train_pred, average='binary', zero_division=0),
         'test_precision': precision_score(y_test, y_test_pred, average='binary', zero_division=0),
         'train_recall': recall_score(y_train, y_train_pred, average='binary', zero_division=0),
         'test_recall': recall_score(y_test, y_test_pred, average='binary', zero_division=0),
         'train_f1': f1_score(y_train, y_train_pred, average='binary', zero_division=0),
         'test_f1': f1_score(y_test, y_test_pred, average='binary', zero_division=0),
+        'overfitting_gap': train_acc - test_acc,  # Track overfitting
     }
     
     if y_test_proba is not None:
@@ -130,18 +137,70 @@ def evaluate_model(model, X_train, X_test, y_train, y_test, model_name):
 
 
 def train_models(X_train, X_test, y_train, y_test):
-    """Train multiple models and compare performance"""
+    """Train multiple models with regularization to prevent overfitting"""
+    # Calculate class weight for imbalanced data
+    pos_weight = len(y_train[y_train==0]) / len(y_train[y_train==1])
+    
     models = {
-        'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42, class_weight='balanced'),
-        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced', n_jobs=-1),
-        'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42),
+        'Logistic Regression': LogisticRegression(
+            max_iter=1000, 
+            random_state=42, 
+            class_weight='balanced',
+            C=0.01,  # More aggressive regularization - lower C = more regularization
+            penalty='l2'
+        ),
+        'Random Forest': RandomForestClassifier(
+            n_estimators=10,  # Very few trees
+            max_depth=3,  # Very shallow - only 3 levels
+            min_samples_split=500,  # Extremely high - require many samples to split
+            min_samples_leaf=250,  # Extremely high - require many samples in leaf
+            max_features=0.3,  # Use only 30% of features
+            max_samples=0.4,  # Use only 40% of samples per tree (bootstrap)
+            random_state=42, 
+            class_weight='balanced', 
+            n_jobs=-1
+        ),
+        'Gradient Boosting': GradientBoostingClassifier(
+            n_estimators=10,  # Very few
+            max_depth=2,  # Very shallow trees (stumps)
+            min_samples_split=500,  # Extremely high
+            min_samples_leaf=250,  # Extremely high
+            learning_rate=0.01,  # Very slow learning
+            subsample=0.4,  # Use only 40% of samples per tree
+            max_features=0.3,  # Use only 30% of features
+            random_state=42
+        ),
     }
     
     if XGBOOST_AVAILABLE:
-        models['XGBoost'] = XGBClassifier(random_state=42, eval_metric='logloss', scale_pos_weight=len(y_train[y_train==0])/len(y_train[y_train==1]))
+        models['XGBoost'] = XGBClassifier(
+            n_estimators=30,  # Further reduced
+            max_depth=2,  # Very shallow
+            min_child_weight=20,  # Much higher
+            learning_rate=0.03,  # Even slower
+            subsample=0.6,  # More aggressive subsampling
+            colsample_bytree=0.6,  # More aggressive feature sampling
+            reg_alpha=1.0,  # Much more L1 regularization
+            reg_lambda=3.0,  # Much more L2 regularization
+            random_state=42, 
+            eval_metric='logloss', 
+            scale_pos_weight=pos_weight
+        )
     
     if LIGHTGBM_AVAILABLE:
-        models['LightGBM'] = LGBMClassifier(random_state=42, verbose=-1, class_weight='balanced')
+        models['LightGBM'] = LGBMClassifier(
+            n_estimators=30,  # Further reduced
+            max_depth=2,  # Very shallow
+            min_child_samples=100,  # Much higher
+            learning_rate=0.03,  # Even slower
+            subsample=0.6,  # More aggressive subsampling
+            colsample_bytree=0.6,  # More aggressive feature sampling
+            reg_alpha=1.0,  # Much more L1 regularization
+            reg_lambda=3.0,  # Much more L2 regularization
+            random_state=42, 
+            verbose=-1, 
+            class_weight='balanced'
+        )
     
     results = []
     trained_models = {}
@@ -156,14 +215,27 @@ def train_models(X_train, X_test, y_train, y_test):
         results.append(metrics)
         trained_models[name] = trained_model
         
+        print(f"  Train Accuracy: {metrics['train_accuracy']:.4f}")
         print(f"  Test Accuracy: {metrics['test_accuracy']:.4f}")
+        print(f"  Overfitting Gap: {metrics['overfitting_gap']:.4f} (train - test)")
         print(f"  Test F1-Score: {metrics['test_f1']:.4f}")
         if 'test_roc_auc' in metrics:
             print(f"  Test ROC-AUC: {metrics['test_roc_auc']:.4f}")
+        if metrics['overfitting_gap'] > 0.05:
+            print(f"  ⚠️  WARNING: High overfitting gap detected!")
     
-    # Find best model
-    best_model_name = max(results, key=lambda x: x.get('test_roc_auc', x['test_f1']))['model_name']
+    # Find best model - prefer models with lower overfitting gap
+    # Score = test_roc_auc - (overfitting_gap * 10) to penalize overfitting
+    for r in results:
+        r['score'] = r.get('test_roc_auc', r['test_f1']) - (r['overfitting_gap'] * 10)
+    
+    best_model_name = max(results, key=lambda x: x['score'])['model_name']
     best_model = trained_models[best_model_name]
+    
+    print(f"\nBest model selected based on: test_roc_auc - (overfitting_gap * 10)")
+    best_metrics = next(r for r in results if r['model_name'] == best_model_name)
+    print(f"  Score: {best_metrics['score']:.4f}")
+    print(f"  Overfitting Gap: {best_metrics['overfitting_gap']:.4f}")
     
     print("\n" + "="*60)
     print(f"Best Model: {best_model_name}")

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MdTrendingUp, MdTrendingDown, MdWarning, MdCheckCircle } from 'react-icons/md';
+import { MdTrendingUp, MdTrendingDown, MdWarning, MdCheckCircle, MdPeople, MdBarChart, MdStorage, MdAnalytics } from 'react-icons/md';
 
 const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary', delay = 0 }) => {
   const [displayValue, setDisplayValue] = useState('0');
@@ -15,6 +15,14 @@ const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary
         return <MdWarning />;
       case 'check':
         return <MdCheckCircle />;
+      case 'people':
+        return <MdPeople />;
+      case 'analytics':
+        return <MdAnalytics />;
+      case 'storage':
+        return <MdStorage />;
+      case 'bar-chart':
+        return <MdBarChart />;
       default:
         return <MdTrendingUp />;
     }

@@ -54,21 +54,32 @@ async function getRetentionOfficerData(userId) {
     actionsResult,
     currentMonthData
   ] = await Promise.all([
-    // Get assigned customers count
+    // Get assigned customers count from customer_assignments table (active, non-expired assignments)
+    // This matches the logic used in Analysis page
     pool.query(
-      'SELECT COUNT(*) as count FROM customers WHERE assigned_officer_id = $1',
+      `SELECT COUNT(DISTINCT c.id) as count 
+       FROM customer_assignments ca
+       INNER JOIN customers c ON ca.customer_id = c.id
+       WHERE ca.officer_id = $1 
+         AND ca.is_active = true
+         AND ca.expires_at > CURRENT_TIMESTAMP
+         AND c.churn_score >= 70`,
       [userId]
     ).catch(err => { console.error('Query 1 error:', err); return { rows: [{ count: 0 }] }; }),
     // Get TOTAL customers count
     pool.query('SELECT COUNT(*) as count FROM customers').catch(err => { console.error('Query 2 error:', err); return { rows: [{ count: 0 }] }; }),
-    // Get risk distribution in one query
+    // Get risk distribution from assigned customers (active assignments only)
     pool.query(
       `SELECT 
-        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
-       FROM customers 
-       WHERE assigned_officer_id = $1 AND risk_level IS NOT NULL`,
+        COUNT(CASE WHEN c.risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN c.risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN c.risk_level = 'low' THEN 1 END) as low_risk
+       FROM customer_assignments ca
+       INNER JOIN customers c ON ca.customer_id = c.id
+       WHERE ca.officer_id = $1 
+         AND ca.is_active = true
+         AND ca.expires_at > CURRENT_TIMESTAMP
+         AND c.risk_level IS NOT NULL`,
       [userId]
     ).catch(err => { console.error('Query 3 error:', err); return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; }),
     // Get TOTAL high risk cases
@@ -81,14 +92,18 @@ async function getRetentionOfficerData(userId) {
       'SELECT COUNT(*) as count FROM actions WHERE officer_id = $1 AND status = $2',
       [userId, 'completed']
     ).catch(err => { console.error('Query 5 error:', err); return { rows: [{ count: 0 }] }; }),
-    // Get current month risk data
+    // Get current month risk data from assigned customers (active assignments only)
     pool.query(
       `SELECT 
-        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
-       FROM customers
-       WHERE assigned_officer_id = $1 AND risk_level IS NOT NULL`,
+        COUNT(CASE WHEN c.risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN c.risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN c.risk_level = 'low' THEN 1 END) as low_risk
+       FROM customer_assignments ca
+       INNER JOIN customers c ON ca.customer_id = c.id
+       WHERE ca.officer_id = $1 
+         AND ca.is_active = true
+         AND ca.expires_at > CURRENT_TIMESTAMP
+         AND c.risk_level IS NOT NULL`,
       [userId]
     ).catch(err => { console.error('Query 6 error:', err); return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; })
   ]);
@@ -109,20 +124,24 @@ async function getRetentionOfficerData(userId) {
     : 0;
 
   // Get risk trend data - optimized query with better date filtering
+  // Use customer_assignments table to match Analysis page logic
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   
   const riskTrendResult = await pool.query(`
     SELECT 
-      DATE_TRUNC('month', COALESCE(updated_at, created_at)) as month,
-      COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-      COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-      COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
-    FROM customers
-    WHERE assigned_officer_id = $1
-      AND COALESCE(updated_at, created_at) >= $2
-      AND risk_level IS NOT NULL
-    GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
+      DATE_TRUNC('month', COALESCE(c.updated_at, c.created_at)) as month,
+      COUNT(CASE WHEN c.risk_level = 'high' THEN 1 END) as high_risk,
+      COUNT(CASE WHEN c.risk_level = 'medium' THEN 1 END) as medium_risk,
+      COUNT(CASE WHEN c.risk_level = 'low' THEN 1 END) as low_risk
+    FROM customer_assignments ca
+    INNER JOIN customers c ON ca.customer_id = c.id
+    WHERE ca.officer_id = $1
+      AND ca.is_active = true
+      AND ca.expires_at > CURRENT_TIMESTAMP
+      AND COALESCE(c.updated_at, c.created_at) >= $2
+      AND c.risk_level IS NOT NULL
+    GROUP BY DATE_TRUNC('month', COALESCE(c.updated_at, c.created_at))
     ORDER BY month ASC
   `, [userId, sixMonthsAgo]).catch((err) => { 
     console.error('Risk trend query error:', err);
@@ -255,6 +274,79 @@ async function getRetentionAnalystData() {
     value: parseInt(row.count || 0)
   }));
 
+  // Get risk trend data for ALL customers (last 6 months)
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  const [riskTrendResult, currentMonthData] = await Promise.all([
+    pool.query(`
+      SELECT 
+        DATE_TRUNC('month', COALESCE(updated_at, created_at)) as month,
+        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
+      FROM customers
+      WHERE COALESCE(updated_at, created_at) >= $1
+        AND risk_level IS NOT NULL
+      GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
+      ORDER BY month ASC
+    `, [sixMonthsAgo]).catch(() => ({ rows: [] })),
+    pool.query(`
+      SELECT 
+        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
+        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
+        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
+      FROM customers
+      WHERE risk_level IS NOT NULL
+    `).catch(() => ({ rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }))
+  ]);
+
+  // Generate labels for last 6 months
+  const months = [];
+  const monthDataMap = {};
+  const today = new Date();
+  
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const monthKey = date.toISOString().slice(0, 7);
+    const label = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    months.push({ key: monthKey, label });
+    monthDataMap[monthKey] = { high: 0, medium: 0, low: 0 };
+  }
+
+  // Fill in data from query results
+  riskTrendResult.rows.forEach(row => {
+    const monthKey = row.month.toISOString().slice(0, 7);
+    if (monthDataMap[monthKey]) {
+      monthDataMap[monthKey] = {
+        high: parseInt(row.high_risk || 0),
+        medium: parseInt(row.medium_risk || 0),
+        low: parseInt(row.low_risk || 0)
+      };
+    }
+  });
+
+  const currentHigh = parseInt(currentMonthData.rows[0]?.high_risk || 0);
+  const currentMedium = parseInt(currentMonthData.rows[0]?.medium_risk || 0);
+  const currentLow = parseInt(currentMonthData.rows[0]?.low_risk || 0);
+
+  // Build risk trend data
+  const riskTrend = {
+    labels: months.map(m => m.label),
+    datasets: {
+      highRisk: months.map(m => monthDataMap[m.key]?.high || 0),
+      mediumRisk: months.map(m => monthDataMap[m.key]?.medium || 0),
+      lowRisk: months.map(m => monthDataMap[m.key]?.low || 0)
+    }
+  };
+
+  // Convert riskDistribution array to alerts object format
+  const alerts = {
+    highRisk: currentHigh,
+    mediumRisk: currentMedium,
+    lowRisk: currentLow
+  };
+
   return {
     success: true,
     totalCustomers,
@@ -266,7 +358,9 @@ async function getRetentionAnalystData() {
     modelAccuracy: parseFloat(modelAccuracy),
     modelAccuracyChange: '+0% this month',
     segmentPerformance,
-    riskDistribution
+    riskDistribution,
+    riskTrend,
+    alerts
   };
 }
 

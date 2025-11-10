@@ -73,13 +73,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const params = [];
     let paramCount = 0;
 
-    // Filter by officer (users can only see their own notes unless they're managers/admins)
-    if (req.user.role === 'retentionOfficer') {
-      paramCount++;
-      query += ` AND rn.officer_id = $${paramCount}`;
-      params.push(req.user.id);
-    }
-
+    // Filter by customer_id first (if provided, all officers can see all notes for that customer)
     if (customer_id) {
       paramCount++;
       // Handle both numeric ID and string customer_id - cast appropriately
@@ -90,6 +84,14 @@ router.get('/', authenticateToken, async (req, res) => {
         query += ` AND (rn.customer_id::text = $${paramCount} OR c.customer_id = $${paramCount})`;
       }
       params.push(customer_id);
+    } else {
+      // Only filter by officer when NOT viewing a specific customer's notes
+      // (officers can only see their own notes in the general list, but can see all notes for a specific customer)
+      if (req.user.role === 'retentionOfficer') {
+        paramCount++;
+        query += ` AND rn.officer_id = $${paramCount}`;
+        params.push(req.user.id);
+      }
     }
 
     if (status) {
@@ -123,12 +125,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const countParams = [];
     let countParamCount = 0;
     
-    if (req.user.role === 'retentionOfficer') {
-      countParamCount++;
-      countQuery += ` AND rn.officer_id = $${countParamCount}`;
-      countParams.push(req.user.id);
-    }
-    
+    // Filter by customer_id first (if provided, all officers can see all notes for that customer)
     if (customer_id) {
       countParamCount++;
       // Handle both numeric ID and string customer_id - cast appropriately
@@ -139,6 +136,14 @@ router.get('/', authenticateToken, async (req, res) => {
         countQuery += ` AND (rn.customer_id::text = $${countParamCount} OR c.customer_id = $${countParamCount})`;
       }
       countParams.push(customer_id);
+    } else {
+      // Only filter by officer when NOT viewing a specific customer's notes
+      // (officers can only see their own notes in the general list, but can see all notes for a specific customer)
+      if (req.user.role === 'retentionOfficer') {
+        countParamCount++;
+        countQuery += ` AND rn.officer_id = $${countParamCount}`;
+        countParams.push(req.user.id);
+      }
     }
     
     if (status) {

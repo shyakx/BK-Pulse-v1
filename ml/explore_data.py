@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 # Configuration
-RAW_DATA_PATH = '../data/raw/bk_simulated_churn_dataset_with_segment_200k.csv'
+RAW_DATA_PATH = '../data/raw/bk_simulated_churn_dataset_with_segment_200k_FINAL.csv'
 OUTPUT_DIR = '../data/processed/eda_results'
 
 
