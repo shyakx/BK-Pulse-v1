@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import { MdRefresh, MdCheckCircle, MdCancel, MdTrendingUp, MdTrendingDown, MdBarChart, MdWarning } from 'react-icons/md';
+import { MdRefresh, MdCheckCircle, MdCancel, MdBarChart, MdWarning } from 'react-icons/md';
 
 const ModelValidation = () => {
   const [metrics, setMetrics] = useState(null);
