@@ -411,8 +411,149 @@ const Sidebar = ({ isCollapsed, toggleCollapse }) => {
                     )}
                   </>
                 );
+              } else if (user?.role === 'retentionManager' || user?.role === 'admin') {
+                // Group pages by section for manager and admin roles
+                const corePages = userPages.filter(p => p.section === 'core' && !p.route.includes(':id'));
+                const teamPages = userPages.filter(p => p.section === 'team' && !p.route.includes(':id'));
+                const analyticalPages = userPages.filter(p => p.section === 'analytical' && !p.route.includes(':id'));
+                const managementPages = userPages.filter(p => p.section === 'management' && !p.route.includes(':id'));
+                const configurationPages = userPages.filter(p => p.section === 'configuration' && !p.route.includes(':id'));
+                
+                const renderPage = (page, index, prefix) => {
+                  const IconComponent = getIcon(page.icon);
+                  const isActive = location.pathname === page.route || 
+                    (page.route !== '/dashboard' && location.pathname.startsWith(page.route));
+                  
+                  return (
+                    <li key={`${prefix}-${index}`} className="nav-item" style={{ marginBottom: '4px' }}>
+                      <NavLink
+                        to={page.route}
+                        className={`sidebar-nav-link d-flex align-items-center ${
+                          isActive ? 'active' : ''
+                        }`}
+                        title={isCollapsed ? page.name : ''}
+                        style={{
+                          position: 'relative',
+                          padding: '0.75rem 1rem',
+                          borderRadius: '10px',
+                          color: isActive ? '#fff' : 'rgba(255, 255, 255, 0.85)',
+                          background: isActive 
+                            ? 'linear-gradient(90deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%)'
+                            : 'transparent',
+                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                          textDecoration: 'none',
+                          margin: '0 8px',
+                          borderLeft: isActive ? '3px solid #fff' : '3px solid transparent',
+                          fontWeight: isActive ? 600 : 500,
+                          boxShadow: isActive ? '0 2px 8px rgba(0, 0, 0, 0.15)' : 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                            e.currentTarget.style.transform = 'translateX(4px)';
+                            e.currentTarget.style.color = '#fff';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.transform = 'translateX(0)';
+                            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
+                          }
+                        }}
+                      >
+                        <IconComponent 
+                          style={{ 
+                            fontSize: '1.35rem',
+                            minWidth: '24px',
+                            transition: 'all 0.2s ease',
+                            transform: isActive ? 'scale(1.1)' : 'scale(1)'
+                          }} 
+                        />
+                        {!isCollapsed && (
+                          <span className="ms-3" style={{ 
+                            fontSize: '0.9rem',
+                            letterSpacing: '0.2px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {page.name}
+                          </span>
+                        )}
+                      </NavLink>
+                    </li>
+                  );
+                };
+                
+                // Helper function to render section divider
+                const renderDivider = (label) => {
+                  if (isCollapsed) return null;
+                  return (
+                    <li className="nav-item mb-2 mt-3" style={{ paddingLeft: '8px', paddingRight: '8px' }}>
+                      <div className="d-flex align-items-center" style={{ marginBottom: '8px' }}>
+                        <div style={{ 
+                          flex: 1, 
+                          height: '1px', 
+                          background: 'rgba(255, 255, 255, 0.2)',
+                          marginRight: '12px'
+                        }}></div>
+                        <small className="text-light opacity-60 px-2" style={{ 
+                          fontSize: '0.65rem', 
+                          fontWeight: 700, 
+                          textTransform: 'uppercase', 
+                          letterSpacing: '1px',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {label}
+                        </small>
+                        <div style={{ 
+                          flex: 1, 
+                          height: '1px', 
+                          background: 'rgba(255, 255, 255, 0.2)',
+                          marginLeft: '12px'
+                        }}></div>
+                      </div>
+                    </li>
+                  );
+                };
+
+                return (
+                  <>
+                    {corePages.length > 0 && (
+                      <>
+                        {renderDivider(user?.role === 'retentionManager' ? 'Strategic Overview' : 'System Overview')}
+                        {corePages.map((page, index) => renderPage(page, index, 'core'))}
+                      </>
+                    )}
+                    {teamPages.length > 0 && (
+                      <>
+                        {renderDivider('Team & Operations')}
+                        {teamPages.map((page, index) => renderPage(page, index, 'team'))}
+                      </>
+                    )}
+                    {analyticalPages.length > 0 && (
+                      <>
+                        {renderDivider('Strategic Analysis')}
+                        {analyticalPages.map((page, index) => renderPage(page, index, 'analytical'))}
+                      </>
+                    )}
+                    {managementPages.length > 0 && (
+                      <>
+                        {renderDivider('Data & Model Management')}
+                        {managementPages.map((page, index) => renderPage(page, index, 'management'))}
+                      </>
+                    )}
+                    {configurationPages.length > 0 && (
+                      <>
+                        {renderDivider('System Configuration')}
+                        {configurationPages.map((page, index) => renderPage(page, index, 'configuration'))}
+                      </>
+                    )}
+                  </>
+                );
               } else {
-                // Default behavior for other roles
+                // Default behavior for other roles (fallback)
                 return userPages
                   .filter(page => !page.route.includes(':id'))
                   .map((page, index) => {

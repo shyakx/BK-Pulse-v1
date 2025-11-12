@@ -14,7 +14,6 @@ const MyTasks = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [showCustomerModal, setShowCustomerModal] = useState(false);
   const [creatingTask, setCreatingTask] = useState(null);
-  const [removingAssignment, setRemovingAssignment] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [deletingTask, setDeletingTask] = useState(null);
   const [, setShowAddModal] = useState(false);
@@ -244,32 +243,6 @@ const MyTasks = () => {
       alert('Failed to create task: ' + (err.response?.data?.message || err.message));
     } finally {
       setCreatingTask(null);
-    }
-  };
-
-  const handleRemoveAssignment = async (customer) => {
-    if (!window.confirm(`Remove assignment for ${customer.name}? This will return the customer to the unassigned pool.`)) {
-      return;
-    }
-
-    try {
-      setRemovingAssignment(customer.id || customer.customer_id);
-      const customerId = customer.id || customer.customer_id;
-      
-      const response = await api.removeAssignment(customerId);
-      
-      if (response.success) {
-        // Remove customer from list
-        setCustomers(customers.filter(c => (c.id || c.customer_id) !== customerId));
-        alert('Assignment removed successfully.');
-      } else {
-        throw new Error(response.message || 'Failed to remove assignment');
-      }
-    } catch (err) {
-      console.error('Error removing assignment:', err);
-      alert('Failed to remove assignment: ' + (err.response?.data?.message || err.message));
-    } finally {
-      setRemovingAssignment(null);
     }
   };
 
@@ -854,19 +827,6 @@ const MyTasks = () => {
                                     )}
                                   </button>
                                 )}
-                                <button
-                                  className="btn btn-sm btn-outline-secondary"
-                                  onClick={() => handleRemoveAssignment(customer)}
-                                  title="Remove Assignment"
-                                  style={{ padding: '0.15rem 0.3rem', fontSize: '0.65rem' }}
-                                  disabled={removingAssignment === customerId}
-                                >
-                                  {removingAssignment === customerId ? (
-                                    <span className="spinner-border spinner-border-sm" style={{ width: '10px', height: '10px' }} />
-                                  ) : (
-                                    <MdDelete size={12} />
-                                  )}
-                                </button>
                               </>
                             ) : (
                           <button

@@ -2,8 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MdTrendingUp, MdTrendingDown, MdWarning, MdCheckCircle, MdPeople, MdBarChart, MdStorage, MdAnalytics } from 'react-icons/md';
 
 const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary', delay = 0 }) => {
-  const [displayValue, setDisplayValue] = useState('0');
-  const [isVisible, setIsVisible] = useState(false);
+  // Initialize displayValue with the actual value to prevent flickering
+  const getInitialDisplayValue = () => {
+    if (typeof value === 'string' && (value.includes('%') || value.includes('$') || value.includes('RWF'))) {
+      return value;
+    }
+    const numValue = typeof value === 'string' 
+      ? parseFloat(value.replace(/[^0-9.]/g, '')) || 0
+      : parseFloat(value) || 0;
+    return numValue.toLocaleString();
+  };
+  
+  const [displayValue, setDisplayValue] = useState(() => getInitialDisplayValue());
   const cardRef = useRef(null);
   const getIcon = () => {
     switch (icon) {
@@ -41,52 +51,51 @@ const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary
   };
 
   // Animate number counting - trigger on mount and value changes
+  // Removed IntersectionObserver to prevent cards from disappearing
+  // Cards are now always visible for stability
+
+  // Track previous value to detect actual changes (not just animation updates)
+  const prevValueRef = useRef(value);
+  const animationTimerRef = useRef(null);
+  
+  // Initialize prevValueRef on mount (only once)
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !isVisible) {
-          // Apply delay before showing
-          setTimeout(() => {
-            setIsVisible(true);
-          }, delay);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const element = cardRef.current;
-
-    if (element) {
-      observer.observe(element);
+    if (prevValueRef.current === undefined || prevValueRef.current === null) {
+      prevValueRef.current = value;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
-    return () => {
-      if (element) {
-        observer.unobserve(element);
-      }
-    };
-  }, [isVisible, delay]);
-
-  // Reset animation when value changes
   useEffect(() => {
-    if (value && value !== displayValue) {
-      setIsVisible(false);
-      // Trigger animation again after a brief delay
-      const timer = setTimeout(() => setIsVisible(true), 100);
-      return () => clearTimeout(timer);
+    // Clear any existing animation
+    if (animationTimerRef.current) {
+      clearInterval(animationTimerRef.current);
+      animationTimerRef.current = null;
     }
-  }, [value, displayValue]);
-
-  useEffect(() => {
-    if (!isVisible) return;
 
     // Extract numeric value from the display string (handles commas, %, $, etc.)
     const numericValue = typeof value === 'string' 
       ? parseFloat(value.replace(/[^0-9.]/g, '')) || 0
       : parseFloat(value) || 0;
 
+    // Get previous value's numeric equivalent
+    const prevNumericValue = typeof prevValueRef.current === 'string'
+      ? parseFloat(prevValueRef.current.toString().replace(/[^0-9.]/g, '')) || 0
+      : parseFloat(prevValueRef.current) || 0;
+
+    // If value hasn't actually changed, don't re-animate
+    if (Math.abs(numericValue - prevNumericValue) < 0.01) {
+      // Still update displayValue if format changed
+      if (prevValueRef.current !== value) {
+        setDisplayValue(value);
+        prevValueRef.current = value;
+      }
+      return;
+    }
+
     if (isNaN(numericValue)) {
       setDisplayValue(value);
+      prevValueRef.current = value;
       return;
     }
 
@@ -94,15 +103,16 @@ const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary
     const isPercentage = typeof value === 'string' && value.includes('%');
     const isCurrency = typeof value === 'string' && (value.includes('$') || value.includes('RWF'));
     
-    const duration = 1500; // Animation duration in ms
-    const steps = 60;
-    const increment = numericValue / steps;
-    let current = 0;
+    const duration = 800; // Shorter duration for smoother updates
+    const steps = 40;
+    const startValue = prevNumericValue;
+    const endValue = numericValue;
+    const increment = (endValue - startValue) / steps;
     let stepCount = 0;
 
-    const timer = setInterval(() => {
+    animationTimerRef.current = setInterval(() => {
       stepCount++;
-      current = Math.min(increment * stepCount, numericValue);
+      const current = Math.min(startValue + (increment * stepCount), endValue);
       
       // Format the number
       let formatted;
@@ -123,29 +133,33 @@ const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary
 
       if (stepCount >= steps) {
         // Ensure final value is exactly the target
-        if (isPercentage) {
-          setDisplayValue(value);
-        } else if (isCurrency) {
-          setDisplayValue(value);
-        } else {
-          setDisplayValue(typeof value === 'string' ? value : numericValue.toLocaleString());
+        setDisplayValue(value);
+        prevValueRef.current = value;
+        if (animationTimerRef.current) {
+          clearInterval(animationTimerRef.current);
+          animationTimerRef.current = null;
         }
-        clearInterval(timer);
       }
     }, duration / steps);
 
-    return () => clearInterval(timer);
-  }, [isVisible, value]);
+    return () => {
+      if (animationTimerRef.current) {
+        clearInterval(animationTimerRef.current);
+        animationTimerRef.current = null;
+      }
+    };
+  }, [value]); // Removed isVisible and displayValue from dependencies to prevent infinite loops
 
   return (
     <div 
       ref={cardRef}
       className="bk-card h-100 dashboard-card"
       style={{
-        opacity: isVisible ? 1 : 0,
-        transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'opacity 0.6s ease-out, transform 0.6s ease-out',
-        borderRadius: '0.5rem'
+        opacity: 1, // Always visible to prevent flickering
+        transform: 'translateY(0)',
+        transition: 'opacity 0.3s ease-out, transform 0.3s ease-out',
+        borderRadius: '0.5rem',
+        minHeight: '120px' // Prevent layout shift
       }}
     >
       <div className="bk-card-body" style={{ padding: '1rem' }}>
@@ -156,7 +170,7 @@ const ChurnOverviewCard = ({ title, value, change, trend, icon, color = 'primary
               width: '36px', 
               height: '36px',
               transition: 'transform 0.3s ease',
-              animation: isVisible ? 'iconPulse 0.6s ease-out 0.3s both' : 'none'
+              animation: 'iconPulse 0.6s ease-out 0.3s both'
             }}
           >
             <span className={`text-${color}`} style={{ fontSize: '1.1rem' }}>

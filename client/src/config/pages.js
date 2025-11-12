@@ -31,15 +31,15 @@ const pages = {
     {
       name: "Dashboard",
       route: "/dashboard",
-      description: "Quick overview of daily tasks and alerts with KPIs and priority alerts.",
+      description: "Quick overview of assigned customers, daily tasks, and priority alerts.",
       components: ["ChurnOverviewCard", "TaskList", "AlertsChart", "HighRiskCustomers", "PriorityAlerts", "RecentActivities", "QuickActions"],
       icon: "dashboard",
       section: "core"
     },
     {
-      name: "Customers",
+      name: "My Customers",
       route: "/customers",
-      description: "Find and browse customers with advanced search and filtering capabilities.",
+      description: "View and manage your assigned customers with churn scores and risk levels.",
       components: ["CustomerTable", "FilterSidebar", "Pagination", "ChurnScoreDisplay", "SearchBar"],
       icon: "people",
       section: "core"
@@ -47,7 +47,7 @@ const pages = {
     {
       name: "My Tasks",
       route: "/tasks",
-      description: "Track assigned work and follow-ups with task management.",
+      description: "Track assigned work, follow-ups, and task completion.",
       components: ["TaskSummaryCards", "TaskList", "TaskFilters", "AddTaskModal"],
       icon: "task",
       section: "core"
@@ -55,49 +55,16 @@ const pages = {
     {
       name: "Notes",
       route: "/retention-notes",
-      description: "Manage all retention interactions and notes with follow-up tracking.",
+      description: "Manage customer interaction notes and follow-up tracking.",
       components: ["NotesDashboard", "NotesTable", "AddNoteModal", "NotesTimeline"],
       icon: "note",
       section: "core"
     },
-    // ===== PREDICTIONS & INSIGHTS =====
-    {
-      name: "Predictions",
-      route: "/prediction-insights",
-      description: "Individual and group churn predictions. Identify which customers are most likely to churn soon and export target lists.",
-      components: ["PredictionConfiguration", "PredictionProgress", "ResultsSummary", "RiskSegmentationTable", "ExportOptions", "IndividualPredictions"],
-      icon: "analytics",
-      section: "insights"
-    },
-    {
-      name: "Recommendations",
-      route: "/recommendations",
-      description: "Suggested actions for at-risk customers. Choose the most effective intervention per customer.",
-      components: ["RecommendationsTable", "RecommendationFilters", "ActionPrioritization", "ConfidenceScores", "ImpactAnalysis"],
-      icon: "thumb_up",
-      section: "insights"
-    },
-    {
-      name: "Analysis",
-      route: "/behavioral-analysis",
-      description: "Detect early churn signals from usage data. Find behavioral shifts that predict churn.",
-      components: ["BehavioralPatterns", "TransactionAnalysis", "UsageTrends", "EarlyWarningSignals"],
-      icon: "assessment",
-      section: "insights"
-    },
-    // ===== CAMPAIGNS & PERFORMANCE =====
-    {
-      name: "Campaigns",
-      route: "/campaigns",
-      description: "View and participate in retention campaigns. Track campaign performance and customer engagement.",
-      components: ["ActiveCampaigns", "CampaignPerformance", "CampaignDetails"],
-      icon: "campaign",
-      section: "performance"
-    },
+    // ===== PERFORMANCE & REPORTS =====
     {
       name: "Performance",
       route: "/performance",
-      description: "Personal performance metrics and retention success tracking.",
+      description: "Track your personal performance metrics and retention success.",
       components: ["PerformanceKPIs", "MonthlyTrendChart", "Leaderboard", "RecentSuccesses"],
       icon: "trending_up",
       section: "performance"
@@ -105,7 +72,7 @@ const pages = {
     {
       name: "Reports",
       route: "/reports",
-      description: "Generate and view reports on customer retention and personal performance.",
+      description: "Generate reports on your customer retention activities and performance.",
       components: ["ReportGenerator", "ExportButtons", "TrendCharts"],
       icon: "assessment",
       section: "performance"
@@ -191,106 +158,135 @@ const pages = {
   ],
 
   retentionManager: [
+    // ===== STRATEGIC OVERVIEW =====
     {
       name: "Dashboard",
       route: "/dashboard",
-      description: "High-level strategic overview with KPIs, trends, and portfolio analysis.",
+      description: "High-level strategic overview with team KPIs, trends, and portfolio analysis.",
       components: ["StrategicKPIs", "TrendAnalysis", "BranchHeatmap", "TeamPerformance", "RiskPortfolio", "CampaignOverview", "AlertCenter"],
-      icon: "dashboard"
+      icon: "dashboard",
+      section: "core"
     },
     {
       name: "Customers",
       route: "/customers",
-      description: "View all customers across the organization with ML churn predictions.",
+      description: "View all customers across the organization with ML churn predictions and assignments.",
       components: ["CustomerTable", "FilterSidebar", "ExecutiveView", "RiskDistributionCharts"],
-      icon: "people"
+      icon: "people",
+      section: "core"
+    },
+    // ===== TEAM & OPERATIONS =====
+    {
+      name: "Team",
+      route: "/team",
+      description: "Oversee retention team with performance tracking, workload management, and assignments.",
+      components: ["TeamOverview", "IndividualPerformance", "WorkloadAssignment", "TrainingDevelopment"],
+      icon: "supervisor_account",
+      section: "team"
+    },
+    {
+      name: "Campaigns",
+      route: "/campaigns",
+      description: "View and manage retention campaigns across the organization.",
+      components: ["ActiveCampaigns", "CampaignPerformance", "CampaignDetails", "ROIAnalysis"],
+      icon: "campaign",
+      section: "team"
     },
     {
       name: "Approvals",
       route: "/approvals",
-      description: "Review and approve campaigns with budget and ROI analysis.",
+      description: "Review and approve high-value retention actions and campaigns.",
       components: ["PendingApprovalsQueue", "CampaignDetailView", "ApprovedCampaigns", "RejectedCampaigns"],
-      icon: "approval"
+      icon: "approval",
+      section: "team"
     },
+    // ===== STRATEGIC ANALYSIS =====
     {
       name: "Analytics",
       route: "/strategic-analytics",
-      description: "Deep-dive analysis with CLV, cohort analysis, and predictive scenarios.",
+      description: "Deep-dive strategic analysis with CLV, cohort analysis, and predictive scenarios.",
       components: ["CLVAnalysis", "CohortAnalysis", "ProductAffinity", "CompetitiveAnalysis", "PredictiveScenarios"],
-      icon: "analytics"
-    },
-    {
-      name: "Team",
-      route: "/team",
-      description: "Oversee retention team with performance tracking and workload management.",
-      components: ["TeamOverview", "IndividualPerformance", "WorkloadAssignment", "TrainingDevelopment"],
-      icon: "supervisor_account"
+      icon: "analytics",
+      section: "analytical"
     },
     {
       name: "Budget & ROI",
       route: "/budget-roi",
-      description: "Financial oversight with budget tracking and ROI analysis.",
+      description: "Financial oversight with budget tracking, ROI analysis, and cost-benefit evaluation.",
       components: ["BudgetDashboard", "ROIAnalysis", "CostBenefitAnalysis"],
-      icon: "attach_money"
+      icon: "attach_money",
+      section: "analytical"
     },
     {
       name: "Reports",
       route: "/reports",
-      description: "Generate executive reports with strategic insights.",
+      description: "Generate executive reports with strategic insights and team performance.",
       components: ["ReportGenerator", "ExportButtons", "TrendCharts", "ExecutiveDashboards"],
-      icon: "assessment"
+      icon: "assessment",
+      section: "analytical"
     }
   ],
 
   admin: [
+    // ===== SYSTEM OVERVIEW =====
     {
       name: "Dashboard",
       route: "/admin/dashboard",
-      description: "Technical system overview with health monitoring and usage statistics.",
+      description: "Technical system overview with health monitoring, usage statistics, and system status.",
       components: ["SystemHealth", "UsageStatistics", "ModelStatus"],
-      icon: "dashboard"
+      icon: "dashboard",
+      section: "core"
     },
+    // ===== USER & ACCESS MANAGEMENT =====
     {
       name: "Users",
       route: "/admin/users",
-      description: "Manage system access with role assignments and permissions.",
+      description: "Manage system users, role assignments, and access permissions.",
       components: ["UserListTable", "AddUserForm", "UserDetailModal", "RolePermissionsMatrix"],
-      icon: "people"
+      icon: "people",
+      section: "management"
     },
+    // ===== DATA & MODEL MANAGEMENT =====
     {
-      name: "Customers",
-      route: "/customers",
-      description: "View all customers and manage customer data.",
-      components: ["CustomerTable", "AdminControls", "DataManagement", "BulkOperations"],
-      icon: "storage"
+      name: "Data",
+      route: "/admin/data",
+      description: "Manage customer data, data quality, ETL processes, and data pipelines.",
+      components: ["DataQualityDashboard", "DataRefreshStatus", "SourceErrorTracking", "AdminControls", "BulkOperations"],
+      icon: "storage",
+      section: "management"
     },
     {
       name: "Models",
       route: "/admin/models",
-      description: "ML model lifecycle management with training, deployment, and monitoring.",
+      description: "ML model lifecycle management: training, deployment, monitoring, and versioning.",
       components: ["CurrentModelCard", "ModelTrainingPanel", "ModelHistory", "FeatureEngineering", "ModelTesting"],
-      icon: "auto_awesome"
+      icon: "auto_awesome",
+      section: "management"
     },
+    // ===== SYSTEM CONFIGURATION =====
     {
       name: "Settings",
       route: "/admin/settings",
-      description: "System settings, prediction thresholds, notifications, and integrations.",
+      description: "Configure system settings, prediction thresholds, notifications, and integrations.",
       components: ["GeneralSettings", "PredictionSettings", "NotificationSettings", "IntegrationSettings"],
-      icon: "settings"
+      icon: "settings",
+      section: "configuration"
     },
     {
       name: "Audit",
       route: "/admin/audit",
-      description: "Track system usage, compliance, and data privacy settings.",
+      description: "Track system usage, compliance, data privacy, and security audit logs.",
       components: ["AuditLog", "ComplianceReports", "DataPrivacy"],
-      icon: "security"
+      icon: "security",
+      section: "configuration"
     },
     {
       name: "Maintenance",
       route: "/admin/maintenance",
-      description: "System maintenance with backup management and database optimization.",
+      description: "System maintenance: backups, database optimization, and system updates.",
       components: ["BackupManagement", "DatabaseMaintenance", "SystemUpdates"],
-      icon: "backup"
+      icon: "backup",
+      section: "configuration"
     }
   ]
 };

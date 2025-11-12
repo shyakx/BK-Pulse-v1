@@ -368,55 +368,135 @@ router.post('/:id/predict', authenticateToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Customer not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Customer not found' 
+      });
     }
 
     const dbCustomer = result.rows[0];
-    const customerData = transformCustomerForPrediction(dbCustomer);
+    
+    // Validate customer data before transformation
+    if (!dbCustomer.customer_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid customer data: missing customer_id'
+      });
+    }
 
-    const prediction = await predictChurn(customerData);
+    let customerData;
+    try {
+      customerData = transformCustomerForPrediction(dbCustomer);
+    } catch (transformError) {
+      console.error('Error transforming customer data:', transformError);
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to transform customer data for prediction',
+        error: transformError.message
+      });
+    }
+
+    // Validate transformed data
+    if (!customerData || !customerData.Customer_ID) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid transformed customer data'
+      });
+    }
+
+    let prediction;
+    try {
+      prediction = await predictChurn(customerData);
+    } catch (predictError) {
+      console.error('Prediction error details:', {
+        error: predictError.message,
+        stack: predictError.stack,
+        customerId: dbCustomer.customer_id,
+        customerData: JSON.stringify(customerData, null, 2)
+      });
+      
+      // Return more detailed error information
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate prediction',
+        error: predictError.message,
+        details: process.env.NODE_ENV === 'development' ? predictError.stack : undefined
+      });
+    }
+
+    // Validate prediction result
+    if (!prediction || prediction.churn_score === undefined) {
+      console.error('Invalid prediction result:', prediction);
+      return res.status(500).json({
+        success: false,
+        message: 'Prediction returned invalid result',
+        prediction: prediction
+      });
+    }
 
     // Log prediction details for debugging
     console.log(`[Customer Predict API] Customer: ${dbCustomer.customer_id}`);
     console.log(`  - Old churn_score: ${dbCustomer.churn_score}`);
     console.log(`  - New churn_score: ${prediction.churn_score}`);
-    console.log(`  - Prediction details:`, JSON.stringify({
-      churn_probability: prediction.churn_probability,
-      churn_score: prediction.churn_score,
-      risk_level: prediction.risk_level
-    }, null, 2));
+    console.log(`  - Risk level: ${prediction.risk_level || 'unknown'}`);
 
     // Ensure churn_score is a number (handle both integer and decimal)
     const churnScore = typeof prediction.churn_score === 'number' 
       ? prediction.churn_score 
       : parseFloat(prediction.churn_score) || 0;
 
-    await pool.query(
-      'UPDATE customers SET churn_score = $1, risk_level = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-      [churnScore, prediction.risk_level, dbCustomer.id]
-    );
-    
-    // Verify the update
-    const verifyResult = await pool.query(
-      'SELECT churn_score, risk_level FROM customers WHERE id = $1',
-      [dbCustomer.id]
-    );
-    if (verifyResult.rows.length > 0) {
-      console.log(`  - Stored churn_score: ${verifyResult.rows[0].churn_score}`);
-      console.log(`  - Stored risk_level: ${verifyResult.rows[0].risk_level}`);
+    // Validate risk_level
+    let riskLevel = prediction.risk_level || 'medium';
+    if (!['low', 'medium', 'high'].includes(riskLevel)) {
+      console.warn(`Invalid risk_level: ${riskLevel}, defaulting to medium`);
+      riskLevel = 'medium';
+    }
+
+    try {
+      await pool.query(
+        'UPDATE customers SET churn_score = $1, risk_level = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+        [churnScore, riskLevel, dbCustomer.id]
+      );
+      
+      // Verify the update
+      const verifyResult = await pool.query(
+        'SELECT churn_score, risk_level FROM customers WHERE id = $1',
+        [dbCustomer.id]
+      );
+      if (verifyResult.rows.length > 0) {
+        console.log(`  - Stored churn_score: ${verifyResult.rows[0].churn_score}`);
+        console.log(`  - Stored risk_level: ${verifyResult.rows[0].risk_level}`);
+      }
+    } catch (dbError) {
+      console.error('Database update error:', dbError);
+      return res.status(500).json({
+        success: false,
+        message: 'Prediction generated but failed to update database',
+        error: dbError.message,
+        prediction: prediction
+      });
     }
 
     res.json({
       success: true,
       customer_id: dbCustomer.customer_id,
-      prediction
+      prediction: {
+        churn_score: churnScore,
+        churn_probability: prediction.churn_probability,
+        risk_level: riskLevel
+      }
     });
   } catch (error) {
-    console.error('Prediction error:', error);
+    console.error('Unexpected error in prediction endpoint:', {
+      error: error.message,
+      stack: error.stack,
+      customerId: req.params.id
+    });
     res.status(500).json({
       success: false,
       message: 'Failed to generate prediction',
-      error: error.message
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

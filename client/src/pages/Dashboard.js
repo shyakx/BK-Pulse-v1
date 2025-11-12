@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import ChurnOverviewCard from '../components/Dashboard/ChurnOverviewCard';
@@ -10,14 +10,11 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tasks, setTasks] = useState([]);
+  const hasFetchedRef = useRef(false);
 
-  useEffect(() => {
-    fetchDashboardData();
-    fetchRecentTasks();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
+      setLoading(true);
       const response = await api.getDashboard();
       if (response.success || response.assignedCustomers !== undefined) {
         // Normalize alerts data for charts (handle both object and array formats)
@@ -43,20 +40,22 @@ const Dashboard = () => {
           }
         }
         
-        // Ensure all data is properly formatted
-        setDashboardData({
+        // Ensure all data is properly formatted - use functional update to prevent race conditions
+        setDashboardData(prevData => ({
+          ...prevData, // Preserve existing data during updates
           ...response,
           alerts: normalizedAlerts
-        });
+        }));
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
+      // Don't clear existing data on error - keep showing what we have
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchRecentTasks = async () => {
+  const fetchRecentTasks = useCallback(async () => {
     try {
       const response = await api.getTasks({ limit: 5, status: 'pending' });
       if (response.success && response.tasks) {
@@ -73,7 +72,16 @@ const Dashboard = () => {
       // Fallback to empty array
       setTasks([]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Only fetch once on mount
+    if (!hasFetchedRef.current && user) {
+      hasFetchedRef.current = true;
+      fetchDashboardData();
+      fetchRecentTasks();
+    }
+  }, [user]); // Removed function dependencies to prevent re-fetching
 
   const getDashboardContent = () => {
     switch (user?.role) {
@@ -376,11 +384,41 @@ const Dashboard = () => {
     }
   };
 
+  // Only show loading spinner on initial load, not when data exists
   if (loading && !dashboardData) {
     return (
       <div className="text-center py-5">
         <div className="spinner-border text-primary" role="status">
           <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // If we have no data but loading is false, show empty state instead of crashing
+  if (!dashboardData && !loading) {
+    return (
+      <div>
+        <div className="d-flex align-items-center justify-content-between mb-4">
+          <div>
+            <h2 className="fw-bold mb-1">
+              {user?.role === 'retentionAnalyst' ? 'Overview Dashboard' : `Welcome back, ${user?.name || user?.email}!`}
+            </h2>
+            <p className="text-muted mb-0">
+              {user?.role === 'retentionAnalyst' 
+                ? "High-level churn trends and KPIs. Monitor customer risk levels, model performance, and segment analysis."
+                : user?.role === 'retentionOfficer'
+                ? "Track your assigned high-risk customers, retention activities, and performance metrics."
+                : user?.role === 'retentionManager'
+                ? "Overview of team performance, customer risk trends, and revenue impact across all customers."
+                : user?.role === 'admin'
+                ? "System-wide dashboard with customer metrics, system health, and user activity monitoring."
+                : `Here's what's happening with your ${user?.role?.replace(/([A-Z])/g, ' $1').trim().toLowerCase()} dashboard today.`}
+            </p>
+          </div>
+        </div>
+        <div className="text-center py-5">
+          <p className="text-muted">Unable to load dashboard data. Please refresh the page.</p>
         </div>
       </div>
     );

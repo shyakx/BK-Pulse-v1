@@ -25,14 +25,12 @@ const AdminSettings = lazy(() => import('./pages/AdminSettings'));
 const RetentionNotes = lazy(() => import('./pages/RetentionNotes'));
 const MyTasks = lazy(() => import('./pages/MyTasks'));
 const Performance = lazy(() => import('./pages/Performance'));
-const BulkPrediction = lazy(() => import('./pages/BulkPrediction'));
 const PredictionInsights = lazy(() => import('./pages/PredictionInsights'));
 const CampaignManagement = lazy(() => import('./pages/CampaignManagement'));
 const CampaignPerformance = lazy(() => import('./pages/CampaignPerformance'));
 const StrategicAnalytics = lazy(() => import('./pages/StrategicAnalytics'));
 const BudgetROI = lazy(() => import('./pages/BudgetROI'));
 const BackupMaintenance = lazy(() => import('./pages/BackupMaintenance'));
-const ModelValidation = lazy(() => import('./pages/ModelValidation'));
 
 // Loading component
 const LoadingSpinner = () => (
@@ -136,11 +134,6 @@ function App() {
                   <ModelInsights />
                 </Suspense>
               } />
-              <Route path="model-validation" element={
-                <Suspense fallback={<LoadingSpinner />}>
-                  <ModelValidation />
-                </Suspense>
-              } />
               <Route path="data-management" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <AdminData />
@@ -148,16 +141,7 @@ function App() {
               } />
               
               {/* Legacy routes for backward compatibility */}
-              <Route path="analysis" element={
-                <Suspense fallback={<LoadingSpinner />}>
-                  <Analysis />
-                </Suspense>
-              } />
-              <Route path="bulk-prediction" element={
-                <Suspense fallback={<LoadingSpinner />}>
-                  <BulkPrediction />
-                </Suspense>
-              } />
+              <Route path="analysis" element={<Navigate to="/behavioral-analysis" replace />} />
               
               {/* Retention Manager routes */}
               <Route path="team" element={

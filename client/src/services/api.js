@@ -85,7 +85,7 @@ export const api = {
   getCustomers: (params = {}) => {
     return apiClient.get('/customers', {
       params,
-      timeout: 60000, // allow longer processing time for large datasets
+      timeout: 0, // disable axios timeout; backend will control request duration
     });
   },
 

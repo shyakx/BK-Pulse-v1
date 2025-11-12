@@ -173,7 +173,15 @@ const CustomerDetails = () => {
       }
     } catch (err) {
       console.error('Error updating prediction:', err);
-      alert(`Failed to update prediction: ${err.message}`);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || err.message || 'Unknown error occurred';
+      const errorDetails = err.response?.data?.details;
+      
+      let fullErrorMessage = `Failed to update prediction: ${errorMessage}`;
+      if (errorDetails && process.env.NODE_ENV === 'development') {
+        fullErrorMessage += `\n\nDetails: ${errorDetails}`;
+      }
+      
+      alert(fullErrorMessage);
     } finally {
       setUpdating(false);
     }
