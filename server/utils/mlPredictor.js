@@ -51,8 +51,28 @@ function predictChurn(customerData, includeShap = false) {
       };
       const jsonData = JSON.stringify(inputData);
       
-      // Spawn Python process
-      const python = spawn('python', [PYTHON_SCRIPT_PATH, jsonData]);
+      // Determine Python command (try common variations)
+      const isWindows = process.platform === 'win32';
+      // On Windows, try 'python' first (most common), then 'py', then 'python3'
+      // On Unix, try 'python3' first, then 'python'
+      const pythonCmd = isWindows ? 'python' : 'python3';
+      
+      // Spawn Python process - pass JSON via stdin to avoid Windows quote escaping issues
+      const python = spawn(pythonCmd, [PYTHON_SCRIPT_PATH], {
+        shell: isWindows, // Use shell on Windows for better compatibility
+        cwd: path.join(__dirname, '../../'), // Set working directory to project root
+        stdio: ['pipe', 'pipe', 'pipe'] // stdin, stdout, stderr
+      });
+      
+      // Write JSON data to stdin
+      python.stdin.write(jsonData);
+      python.stdin.end();
+      
+      // Handle stdin errors
+      python.stdin.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(new Error(`Failed to write to Python process stdin: ${error.message}`));
+      });
       
       let stdout = '';
       let stderr = '';
@@ -73,21 +93,49 @@ function predictChurn(customerData, includeShap = false) {
       
       python.on('close', (code) => {
         clearTimeout(timeout);
+        
+        // Try to parse stdout as JSON first (Python script outputs errors as JSON to stdout)
+        let result = null;
+        try {
+          if (stdout.trim()) {
+            result = JSON.parse(stdout);
+          }
+        } catch (parseError) {
+          // stdout is not JSON, continue with error handling
+        }
+        
         if (code !== 0) {
-          console.error('Python script error:', stderr);
-          reject(new Error(`Python script exited with code ${code}: ${stderr || 'Unknown error'}`));
+          // Check if stdout contains error JSON
+          if (result && result.error) {
+            console.error('Python script error (from stdout):', result.error);
+            console.error('Python stderr:', stderr);
+            reject(new Error(result.error));
+            return;
+          }
+          
+          // Otherwise, use stderr or stdout as error message
+          const errorMsg = stderr.trim() || stdout.trim() || 'Unknown error';
+          console.error('Python script error:', errorMsg);
+          console.error('Python stdout:', stdout.substring(0, 500));
+          console.error('Python stderr:', stderr);
+          reject(new Error(`Python script exited with code ${code}: ${errorMsg}`));
           return;
         }
         
-        try {
-          const result = JSON.parse(stdout);
-          if (result.error) {
-            reject(new Error(result.error));
-          } else {
-            resolve(result);
+        // Success case - parse result
+        if (!result) {
+          try {
+            result = JSON.parse(stdout);
+          } catch (parseError) {
+            reject(new Error(`Failed to parse prediction result: ${parseError.message}. Output: ${stdout.substring(0, 200)}`));
+            return;
           }
-        } catch (parseError) {
-          reject(new Error(`Failed to parse prediction result: ${parseError.message}. Output: ${stdout.substring(0, 200)}`));
+        }
+        
+        if (result.error) {
+          reject(new Error(result.error));
+        } else {
+          resolve(result);
         }
       });
       

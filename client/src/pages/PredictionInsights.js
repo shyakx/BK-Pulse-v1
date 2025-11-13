@@ -90,6 +90,10 @@ const PredictionInsights = () => {
         throw new Error(errorMessage);
       }
 
+      // Show success message with instructions to refresh customer list
+      const updatedCount = response.updated || validPredictions.length;
+      alert(`Successfully updated ${updatedCount} customer predictions! The churn scores have been saved to the database. Go to the Customers page and click "Refresh" to see the updated scores.`);
+
       // Fetch customer details for predictions
       const customerIds = validPredictions.map(p => p.customer_id).filter(Boolean);
       let customerDetails = [];

@@ -131,12 +131,13 @@ const CustomerTable = ({ customers = [], onFilter, onSort }) => {
             </tr>
           ) : (
             customers.map((customer, index) => {
-              const customerId = customer.id || customer.customer_id;
+              // Always use customer_id (actual customer ID like 100012), not id (database ID like 424010)
+              const customerId = customer.customer_id || customer.id;
               if (!customerId) {
                 console.error(`[CustomerTable] No valid ID found for customer:`, customer);
               }
               return (
-              <tr key={customerId || customer.customer_id}>
+              <tr key={customerId || `customer-${index}`}>
                 <td>
                   <div className="d-flex align-items-center">
                     <div 
@@ -188,15 +189,19 @@ const CustomerTable = ({ customers = [], onFilter, onSort }) => {
                 <td>
                   <div className="d-flex" style={{ gap: '0.25rem' }}>
                     <Link
-                      to={`/customers/${customerId}`}
+                      to={`/customers/${customer.customer_id || customer.id}`}
                       className="btn btn-sm btn-outline-primary"
                       title="View Details"
                       style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                       onClick={(e) => {
-                        if (!customerId) {
+                        const idToUse = customer.customer_id || customer.id;
+                        if (!idToUse) {
                           e.preventDefault();
                           console.error('Customer missing ID:', customer);
                           alert('Error: Customer ID is missing');
+                        } else {
+                          // Log for debugging
+                          console.log(`[CustomerTable] Navigating to customer: ${idToUse} (customer_id: ${customer.customer_id}, id: ${customer.id})`);
                         }
                       }}
                     >

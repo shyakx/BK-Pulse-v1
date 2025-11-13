@@ -37,7 +37,7 @@ const pages = {
       section: "core"
     },
     {
-      name: "My Customers",
+      name: "Customers",
       route: "/customers",
       description: "View and manage your assigned customers with churn scores and risk levels.",
       components: ["CustomerTable", "FilterSidebar", "Pagination", "ChurnScoreDisplay", "SearchBar"],
@@ -59,6 +59,15 @@ const pages = {
       components: ["NotesDashboard", "NotesTable", "AddNoteModal", "NotesTimeline"],
       icon: "note",
       section: "core"
+    },
+    // ===== PREDICTIONS & INSIGHTS =====
+    {
+      name: "Predictions",
+      route: "/prediction-insights",
+      description: "View churn predictions for your assigned customers and run batch predictions.",
+      components: ["PredictionConfiguration", "PredictionProgress", "ResultsSummary", "RiskSegmentationTable", "ExportOptions", "IndividualPredictions"],
+      icon: "analytics",
+      section: "insights"
     },
     // ===== PERFORMANCE & REPORTS =====
     {

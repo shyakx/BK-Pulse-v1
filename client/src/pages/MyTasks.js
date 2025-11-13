@@ -60,7 +60,8 @@ const MyTasks = () => {
       // Map tasks to their customers
       if (tasksResponse.success && tasksResponse.tasks) {
         tasksResponse.tasks.forEach(task => {
-          const customerId = task.customer_id || task.customer_customer_id;
+          // Always use customer_id (actual customer ID like 100012), not id (database ID like 424010)
+          const customerId = task.customer_customer_id || task.customer_id;
           if (customerId) {
             customerTaskMap.set(customerId, {
               taskId: task.id,
@@ -78,7 +79,8 @@ const MyTasks = () => {
       // Process assigned customers
       if (assignmentsResponse.success && assignmentsResponse.customers) {
         assignmentsResponse.customers.forEach(customer => {
-          const customerId = customer.id || customer.customer_id;
+          // Always use customer_id (actual customer ID like 100012), not id (database ID like 424010)
+          const customerId = customer.customer_id || customer.id;
           const task = customerTaskMap.get(customerId);
           
           allCustomers.push({
@@ -92,8 +94,9 @@ const MyTasks = () => {
       // Add customers that have tasks but might not be in assignments (edge case)
       if (tasksResponse.success && tasksResponse.tasks) {
         tasksResponse.tasks.forEach(task => {
-          const customerId = task.customer_id || task.customer_customer_id;
-          const exists = allCustomers.some(c => (c.id || c.customer_id) === customerId);
+          // Always use customer_id (actual customer ID like 100012), not id (database ID like 424010)
+          const customerId = task.customer_customer_id || task.customer_id;
+          const exists = allCustomers.some(c => (c.customer_id || c.id) === customerId);
           
           if (!exists && task.customer_name) {
             // Customer has a task but not in assignments - add them
@@ -201,8 +204,9 @@ const MyTasks = () => {
     }
 
     try {
-      setCreatingTask(customer.id || customer.customer_id);
-      const customerId = customer.id || customer.customer_id;
+      // Always use customer_id (actual customer ID like 100012), not id (database ID like 424010)
+      const customerId = customer.customer_id || customer.id;
+      setCreatingTask(customerId);
       
       const taskData = {
         customer_id: customerId,
@@ -216,7 +220,8 @@ const MyTasks = () => {
       if (response.success) {
         // Update customer to show they now have a task
         setCustomers(customers.map(c => {
-          const cId = c.id || c.customer_id;
+          // Always use customer_id (actual customer ID like 100012), not id (database ID like 424010)
+          const cId = c.customer_id || c.id;
           if (cId === customerId) {
             return {
               ...c,
@@ -635,7 +640,8 @@ const MyTasks = () => {
                     const isOfficer = user?.role === 'retentionOfficer';
                     const customer = isOfficer ? item : null;
                     const task = !isOfficer ? item : null;
-                    const customerId = isOfficer ? (customer.id || customer.customer_id) : (task.customer_id || task.customer_customer_id);
+                    // Always use customer_id (actual customer ID like 100012), not id (database ID like 424010)
+                    const customerId = isOfficer ? (customer.customer_id || customer.id) : (task.customer_customer_id || task.customer_id);
                     const customerName = isOfficer ? customer.name : task.customer_name;
                     // Ensure churnScore is a number
                     const churnScore = parseFloat(isOfficer ? (customer.churn_score || 0) : (task.customer_churn_score || 0)) || 0;
@@ -655,7 +661,20 @@ const MyTasks = () => {
                       <td style={{ padding: '0.5rem 0.25rem' }}>
                         <div className="fw-medium" style={{ fontSize: '0.75rem', lineHeight: '1.2' }}>
                             {isOfficer ? (
-                              <Link to={`/customers/${customerId}`} style={{ textDecoration: 'none' }}>
+                              <Link 
+                                to={`/customers/${customer.customer_id || customer.id}`} 
+                                style={{ textDecoration: 'none' }}
+                                onClick={(e) => {
+                                  const idToUse = customer.customer_id || customer.id;
+                                  if (!idToUse) {
+                                    e.preventDefault();
+                                    console.error('Customer missing ID:', customer);
+                                    alert('Error: Customer ID is missing');
+                                  } else {
+                                    console.log(`[MyTasks] Navigating to customer: ${idToUse} (customer_id: ${customer.customer_id}, id: ${customer.id})`);
+                                  }
+                                }}
+                              >
                                 {customerName?.length > 15 ? `${customerName.substring(0, 15)}...` : customerName}
                               </Link>
                             ) : (

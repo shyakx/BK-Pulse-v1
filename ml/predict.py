@@ -12,21 +12,99 @@ from pathlib import Path
 
 # Paths
 BASE_DIR = Path(__file__).parent
-# Use the latest best model (LightGBM - trained on corrected FINAL dataset)
-MODEL_PATH = BASE_DIR / '../data/models/lightgbm_best.pkl'
+# Model paths - try LightGBM first, fall back to Gradient Boosting if LightGBM fails
+LIGHTGBM_MODEL_PATH = BASE_DIR / '../data/models/lightgbm_best.pkl'
+GRADIENT_BOOSTING_MODEL_PATH = BASE_DIR / '../data/models/gradient_boosting_best.pkl'
+RANDOM_FOREST_MODEL_PATH = BASE_DIR / '../data/models/random_forest_best.pkl'
 SCALER_PATH = BASE_DIR / '../data/processed/scaler.pkl'
 ENCODER_PATH = BASE_DIR / '../data/processed/encoders.pkl'
 
 
 def load_artifacts():
-    """Load model, scaler, and encoders"""
-    try:
-        model = joblib.load(MODEL_PATH)
-        scaler = joblib.load(SCALER_PATH)
-        encoders = joblib.load(ENCODER_PATH)
-        return model, scaler, encoders
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"Model artifacts not found: {e}. Please run training first.")
+    """Load model, scaler, and encoders with fallback if LightGBM fails"""
+    # Resolve paths to absolute paths for better error messages
+    scaler_path = SCALER_PATH.resolve()
+    encoder_path = ENCODER_PATH.resolve()
+    
+    # Check if required files exist
+    if not scaler_path.exists():
+        raise FileNotFoundError(f"Scaler file not found: {scaler_path}. Please run training first.")
+    if not encoder_path.exists():
+        raise FileNotFoundError(f"Encoder file not found: {encoder_path}. Please run training first.")
+    
+    # Try to load scaler and encoders first
+    scaler = joblib.load(scaler_path)
+    encoders = joblib.load(encoder_path)
+    
+    # Try to load model with fallback strategy
+    model = None
+    model_name = None
+    last_error = None
+    
+    # Try LightGBM first (best model if available)
+    lightgbm_path = LIGHTGBM_MODEL_PATH.resolve()
+    if lightgbm_path.exists():
+        try:
+            # Try to import lightgbm first to check if it's available
+            try:
+                import lightgbm
+            except (ImportError, FileNotFoundError, OSError) as import_error:
+                # LightGBM not available or DLL missing, skip it
+                print(f"Warning: LightGBM not available ({import_error}). Falling back to Gradient Boosting...", file=sys.stderr)
+                model = None
+            else:
+                # LightGBM is available, try to load the model
+                try:
+                    model = joblib.load(lightgbm_path)
+                    model_name = "LightGBM"
+                    # Test if model actually works by checking if it has the required attributes
+                    if hasattr(model, 'predict_proba'):
+                        return model, scaler, encoders
+                except Exception as e:
+                    last_error = e
+                    print(f"Warning: Could not load LightGBM model: {e}", file=sys.stderr)
+                    print(f"Falling back to Gradient Boosting model...", file=sys.stderr)
+                    model = None
+        except Exception as e:
+            last_error = e
+            print(f"Warning: Could not load LightGBM model: {e}", file=sys.stderr)
+            print(f"Falling back to Gradient Boosting model...", file=sys.stderr)
+            model = None
+    
+    # Fall back to Gradient Boosting (scikit-learn, more reliable on Windows)
+    gradient_boosting_path = GRADIENT_BOOSTING_MODEL_PATH.resolve()
+    if not model and gradient_boosting_path.exists():
+        try:
+            model = joblib.load(gradient_boosting_path)
+            model_name = "Gradient Boosting"
+            if hasattr(model, 'predict_proba'):
+                return model, scaler, encoders
+        except Exception as e:
+            last_error = e
+            print(f"Warning: Could not load Gradient Boosting model: {e}", file=sys.stderr)
+            model = None
+    
+    # Fall back to Random Forest (most reliable, always works)
+    random_forest_path = RANDOM_FOREST_MODEL_PATH.resolve()
+    if not model and random_forest_path.exists():
+        try:
+            model = joblib.load(random_forest_path)
+            model_name = "Random Forest"
+            if hasattr(model, 'predict_proba'):
+                return model, scaler, encoders
+        except Exception as e:
+            last_error = e
+            print(f"Warning: Could not load Random Forest model: {e}", file=sys.stderr)
+            model = None
+    
+    # If all models failed, raise an error
+    if not model:
+        error_msg = f"Could not load any model. Tried LightGBM, Gradient Boosting, and Random Forest."
+        if last_error:
+            error_msg += f" Last error: {last_error}"
+        raise FileNotFoundError(error_msg)
+    
+    return model, scaler, encoders
 
 
 def clean_balance(value):
@@ -303,15 +381,32 @@ def predict_batch(customers_data):
 
 
 if __name__ == '__main__':
-    # Command line usage
-    if len(sys.argv) < 2:
-        print("Usage: python predict.py <json_data>")
-        print("Example: python predict.py '{\"Age\": 45, \"Tenure_Months\": 60, ...}'")
+    # Command line usage - supports both stdin and command-line argument
+    # Prefer stdin for better cross-platform compatibility (especially Windows)
+    json_input = None
+    
+    # Try to read from stdin first (more reliable on Windows, avoids quote escaping issues)
+    # Read from stdin if it's not a TTY (i.e., data is being piped)
+    try:
+        if not sys.stdin.isatty():
+            json_input = sys.stdin.read().strip()
+    except (IOError, OSError):
+        # stdin might not be readable, continue to try command-line argument
+        pass
+    
+    # Fall back to command-line argument if stdin is empty
+    if not json_input and len(sys.argv) >= 2:
+        json_input = sys.argv[1]
+    
+    if not json_input:
+        error_msg = "Usage: python predict.py <json_data> or echo '<json_data>' | python predict.py"
+        print(json.dumps({'error': error_msg}), file=sys.stderr)
+        print(error_msg, file=sys.stderr)
         sys.exit(1)
     
     try:
         # Parse JSON input
-        input_data = json.loads(sys.argv[1])
+        input_data = json.loads(json_input)
         customer_data = input_data.get('customer_data', input_data) if isinstance(input_data, dict) else input_data
         include_shap = input_data.get('include_shap', False) if isinstance(input_data, dict) else False
         
@@ -321,10 +416,26 @@ if __name__ == '__main__':
         # Output as JSON
         print(json.dumps(result))
         
-    except json.JSONDecodeError:
-        print(json.dumps({'error': 'Invalid JSON input'}))
+    except json.JSONDecodeError as e:
+        error_msg = f'Invalid JSON input: {str(e)}'
+        error_json = json.dumps({'error': error_msg})
+        print(error_json)
+        print(error_msg, file=sys.stderr)
+        sys.exit(1)
+    except FileNotFoundError as e:
+        error_msg = str(e)
+        error_json = json.dumps({'error': error_msg})
+        print(error_json)
+        print(f"FileNotFoundError: {error_msg}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(json.dumps({'error': str(e)}))
+        error_msg = str(e)
+        error_json = json.dumps({'error': error_msg})
+        print(error_json)
+        print(f"Error: {error_msg}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 

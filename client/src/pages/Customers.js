@@ -70,12 +70,12 @@ const Customers = () => {
 
   // Batch update predictions for all customers
   const handleBatchUpdatePredictions = async () => {
-    if (!['retentionAnalyst', 'retentionManager', 'admin'].includes(user?.role)) {
+    if (!['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin'].includes(user?.role)) {
       alert('You do not have permission to update predictions');
       return;
     }
 
-    if (!window.confirm('This will update churn predictions for all customers. This may take a few moments. Continue?')) {
+    if (!window.confirm('This will update churn predictions for up to 100 customers using the ML model. This may take a few minutes. Continue?')) {
       return;
     }
 
@@ -83,18 +83,34 @@ const Customers = () => {
       setBatchUpdating(true);
       const response = await api.batchPredict({ limit: 100 });
       
+      // Reset updating state immediately after response is received
+      setBatchUpdating(false);
+      
       if (response.success) {
-        alert(`Successfully updated ${response.updated} customer predictions!`);
-        // Refresh the customer list
-        fetchCustomers(currentPage, searchTerm, filters);
+        const updatedCount = response.updated || 0;
+        const totalCount = response.total || 0;
+        
+        // Show success message
+        alert(`Successfully updated ${updatedCount} out of ${totalCount} customer predictions! The customer list will now refresh to show the updated churn scores.`);
+        
+        // Automatically refresh the customer list to show updated scores
+        // Use a small delay to ensure the alert is dismissed first
+        setTimeout(() => {
+          fetchCustomers(currentPage, searchTerm, filters);
+        }, 100);
       } else {
         throw new Error(response.message || 'Failed to update predictions');
       }
     } catch (err) {
-      console.error('Error updating predictions:', err);
-      alert(`Failed to update predictions: ${err.message}`);
-    } finally {
+      // Reset updating state on error
       setBatchUpdating(false);
+      
+      console.error('Error updating predictions:', err);
+      let errorMessage = `Failed to update predictions: ${err.message}`;
+      if (err.isTimeout) {
+        errorMessage += '\n\nThe prediction process timed out. Some predictions may have been updated. Try refreshing the customer list to see updated scores.';
+      }
+      alert(errorMessage);
     }
   };
 
@@ -204,15 +220,15 @@ const Customers = () => {
             <MdRefresh className={`me-2 ${loading ? 'spinning' : ''}`} />
             Refresh
           </button>
-          {['retentionAnalyst', 'retentionManager', 'admin'].includes(user?.role) && (
+          {['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin'].includes(user?.role) && (
             <button 
               className="btn btn-warning"
               onClick={handleBatchUpdatePredictions}
               disabled={batchUpdating || loading}
-              title="Update churn predictions for all customers using ML model"
+              title="Update churn predictions for up to 100 customers using ML model. This may take a few minutes."
             >
               <MdTrendingUp className={`me-2 ${batchUpdating ? 'spinning' : ''}`} />
-              {batchUpdating ? 'Updating...' : 'Update All Predictions'}
+              {batchUpdating ? 'Updating Predictions...' : 'Update Predictions'}
             </button>
           )}
           <button className="btn btn-outline-primary">
