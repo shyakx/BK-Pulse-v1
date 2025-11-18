@@ -490,10 +490,7 @@ This starts:
 ### Documentation Files
 
 - `README.md` - Project overview and setup
-- `QUICK_SETUP.md` - Quick database setup guide
-- `COMPLETE_SETUP.md` - Detailed setup instructions
-- `PREDICTION_FEATURES.md` - ML prediction features guide
-- `API_INTEGRATION_SUMMARY.md` - API integration status
+- `ml/PREDICTION_API.md` - ML prediction features guide
 
 ### ML Pipeline
 

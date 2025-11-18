@@ -1,30 +1,4 @@
-/**
- * BK Pulse – Role-based Churn Intelligence Platform
- * Technology Stack: React + Bootstrap (Frontend), Node.js (Backend), PostgreSQL (Database)
- * Branding: Bank of Kigali colors and identity
- * Author: Steven SHYAKA
- * Date: 10/2025
- */
-
-/**
- * Users and Roles:
- * 1. Retention Officer
- * 2. Retention Analyst
- * 3. Retention Manager
- * 4. Admin
- */
-
-/**
- * Sidebar & Navbar Structure:
- * - Dynamic based on logged-in user role
- * - Navbar: Home/Dashboard, Profile, Logout
- * - Sidebar: role-specific links
- */
-
-/**
- * Pages & Modules per Role
- */
-
+// Role-based page configuration for BK Pulse
 const pages = {
   retentionOfficer: [
     // ===== CORE OFFICER PAGES (Daily Use) =====

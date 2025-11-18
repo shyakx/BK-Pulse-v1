@@ -1,8 +1,4 @@
-/**
- * Bank of Kigali Theme Configuration
- * Colors and styling for BK Pulse application
- */
-
+// Bank of Kigali theme configuration
 export const theme = {
   colors: {
     primary: '#1e3a8a', // BK Blue

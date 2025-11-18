@@ -396,14 +396,8 @@ See `ml/README.md` for detailed documentation on the ML pipeline.
 
 ## 📚 Documentation
 
-### Project Submission Documents
-- **[TESTING_RESULTS.md](TESTING_RESULTS.md)** - Comprehensive testing results, screenshots, and performance analysis
-- **[ANALYSIS.md](ANALYSIS.md)** - Detailed analysis, discussion, and recommendations for the project
-
-### Quick References
-- **[QUICK_START.md](QUICK_START.md)** - Fastest way to get the application running
+### User Documentation
 - **[USER_GUIDE.md](USER_GUIDE.md)** - Complete user guide and feature documentation
-- **[PREDICTION_FEATURES.md](PREDICTION_FEATURES.md)** - ML prediction features and usage
 
 ### Technical Documentation
 - **[docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)** - PostgreSQL database setup and configuration
@@ -418,9 +412,6 @@ Available in `server/scripts/`:
 - `addCustomersBatch.js` - Add customers in batches to the database
 - `generateCustomers.js` - Generate customer data for seeding
 - `createEnv.js` - Interactive .env file creator
-
-### Performance
-- **[PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md)** - Performance improvements and optimization guide
 
 ## 🚀 Deployment
 
