@@ -176,19 +176,51 @@ router.get('/:id/shap', authenticateToken, async (req, res) => {
     const customerId = req.params.id;
 
     const result = await pool.query(
-      'SELECT * FROM customers WHERE customer_id = $1 OR id::text = $1',
+      'SELECT * FROM customers WHERE customer_id = $1 OR id::text = $1 ORDER BY updated_at DESC, id DESC LIMIT 1',
       [customerId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Customer not found' });
+      return res.status(404).json({ 
+        success: false,
+        message: 'Customer not found' 
+      });
     }
 
     const dbCustomer = result.rows[0];
-    const customerData = transformCustomerForPrediction(dbCustomer);
+    
+    // Validate customer data before transformation
+    if (!dbCustomer.customer_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid customer data: missing customer_id'
+      });
+    }
+
+    let customerData;
+    try {
+      customerData = transformCustomerForPrediction(dbCustomer);
+    } catch (transformError) {
+      console.error('Error transforming customer data for SHAP:', transformError);
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to transform customer data for prediction',
+        error: transformError.message
+      });
+    }
 
     // Get prediction with SHAP values
-    const prediction = await predictChurn(customerData, true); // include_shap = true
+    let prediction;
+    try {
+      prediction = await predictChurn(customerData, true); // include_shap = true
+    } catch (predictError) {
+      console.error('SHAP prediction error:', predictError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate prediction with SHAP values',
+        error: predictError.message
+      });
+    }
 
     res.json({
       success: true,
@@ -212,8 +244,33 @@ router.get('/:id/recommendations', authenticateToken, async (req, res) => {
   try {
     const customerId = req.params.id;
 
+    // Ensure recommendations table exists
+    try {
+      await pool.query('SELECT 1 FROM recommendations LIMIT 1');
+    } catch (tableError) {
+      // Table doesn't exist, create it
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS recommendations (
+          id SERIAL PRIMARY KEY,
+          customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+          model_version VARCHAR(50),
+          recommended_action VARCHAR(100),
+          confidence_score DECIMAL(5,2),
+          expected_impact VARCHAR(50),
+          status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'implemented')),
+          approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          approved_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_recommendations_customer_id ON recommendations(customer_id);
+        CREATE INDEX IF NOT EXISTS idx_recommendations_status ON recommendations(status);
+      `);
+    }
+
     const result = await pool.query(
-      'SELECT * FROM customers WHERE customer_id = $1 OR id::text = $1',
+      'SELECT * FROM customers WHERE customer_id = $1 OR id::text = $1 ORDER BY updated_at DESC, id DESC LIMIT 1',
       [customerId]
     );
 
@@ -225,10 +282,39 @@ router.get('/:id/recommendations', authenticateToken, async (req, res) => {
     }
 
     const dbCustomer = result.rows[0];
-    const customerData = transformCustomerForPrediction(dbCustomer);
+    
+    // Validate customer data before transformation
+    if (!dbCustomer.customer_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid customer data: missing customer_id'
+      });
+    }
+
+    let customerData;
+    try {
+      customerData = transformCustomerForPrediction(dbCustomer);
+    } catch (transformError) {
+      console.error('Error transforming customer data for recommendations:', transformError);
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to transform customer data for prediction',
+        error: transformError.message
+      });
+    }
 
     // Get prediction with SHAP values
-    const prediction = await predictChurn(customerData, true);
+    let prediction;
+    try {
+      prediction = await predictChurn(customerData, true);
+    } catch (predictError) {
+      console.error('Prediction error in recommendations:', predictError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate prediction',
+        error: predictError.message
+      });
+    }
     
     // Generate recommendations based on prediction and SHAP values
     const { generateRecommendations } = require('../utils/recommendationEngine');
@@ -240,27 +326,37 @@ router.get('/:id/recommendations', authenticateToken, async (req, res) => {
 
     // Optionally save recommendations to database
     if (recommendations.length > 0) {
-      // Delete old recommendations for this customer
-      await pool.query(
-        'DELETE FROM recommendations WHERE customer_id = $1 AND status = $2',
-        [dbCustomer.id, 'pending']
-      );
-
-      // Insert new recommendations
-      for (const rec of recommendations) {
+      try {
+        // Delete old recommendations for this customer
         await pool.query(
-          `INSERT INTO recommendations 
-           (customer_id, model_version, recommended_action, confidence_score, expected_impact, status)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [
-            dbCustomer.id,
-            'v2.1',
-            rec.action,
-            rec.confidence, // Already 0-100 from dynamic calculation
-            (rec.estimatedImpact || rec.priority || 'Medium').substring(0, 50), // Use estimatedImpact, truncate to 50 chars for DB
-            'pending'
-          ]
+          'DELETE FROM recommendations WHERE customer_id = $1 AND status = $2',
+          [dbCustomer.id, 'pending']
         );
+
+        // Insert new recommendations
+        for (const rec of recommendations) {
+          try {
+            await pool.query(
+              `INSERT INTO recommendations 
+               (customer_id, model_version, recommended_action, confidence_score, expected_impact, status)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                dbCustomer.id,
+                'v2.1',
+                rec.action,
+                rec.confidence, // Already 0-100 from dynamic calculation
+                (rec.estimatedImpact || rec.priority || 'Medium').substring(0, 50), // Use estimatedImpact, truncate to 50 chars for DB
+                'pending'
+              ]
+            );
+          } catch (insertError) {
+            console.error('Error inserting recommendation:', insertError);
+            // Continue with other recommendations even if one fails
+          }
+        }
+      } catch (dbError) {
+        console.error('Error saving recommendations to database:', dbError);
+        // Continue and return recommendations even if DB save fails
       }
     }
 

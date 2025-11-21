@@ -76,13 +76,8 @@ router.get('/', authenticateToken, async (req, res) => {
     // Filter by customer_id first (if provided, all officers can see all notes for that customer)
     if (customer_id) {
       paramCount++;
-      // Handle both numeric ID and string customer_id - cast appropriately
-      const isNumeric = /^\d+$/.test(String(customer_id));
-      if (isNumeric) {
-        query += ` AND (rn.customer_id = $${paramCount}::integer OR c.customer_id::text = $${paramCount}::text)`;
-      } else {
-        query += ` AND (rn.customer_id::text = $${paramCount} OR c.customer_id = $${paramCount})`;
-      }
+      // Match by customer_id (string) or id (integer) - consistent with other routes
+      query += ` AND (rn.customer_id::text = $${paramCount} OR c.customer_id = $${paramCount} OR c.id::text = $${paramCount})`;
       params.push(customer_id);
     } else {
       // Only filter by officer when NOT viewing a specific customer's notes
@@ -128,13 +123,8 @@ router.get('/', authenticateToken, async (req, res) => {
     // Filter by customer_id first (if provided, all officers can see all notes for that customer)
     if (customer_id) {
       countParamCount++;
-      // Handle both numeric ID and string customer_id - cast appropriately
-      const isNumeric = /^\d+$/.test(String(customer_id));
-      if (isNumeric) {
-        countQuery += ` AND (rn.customer_id = $${countParamCount}::integer OR c.customer_id::text = $${countParamCount}::text)`;
-      } else {
-        countQuery += ` AND (rn.customer_id::text = $${countParamCount} OR c.customer_id = $${countParamCount})`;
-      }
+      // Match by customer_id (string) or id (integer) - consistent with other routes
+      countQuery += ` AND (rn.customer_id::text = $${countParamCount} OR c.customer_id = $${countParamCount} OR c.id::text = $${countParamCount})`;
       countParams.push(customer_id);
     } else {
       // Only filter by officer when NOT viewing a specific customer's notes
@@ -293,25 +283,14 @@ router.post('/', authenticateToken, async (req, res) => {
     // Resolve customer_id (could be customer.id or customer.customer_id)
     let customerDbId = null;
     if (typeof customer_id === 'string') {
-      // Try to find by customer_id first
+      // Try to find by customer_id first, then by id (matching other routes)
       let customerResult = await pool.query(
-        'SELECT id FROM customers WHERE customer_id = $1',
+        'SELECT id FROM customers WHERE customer_id = $1 OR id::text = $1 ORDER BY updated_at DESC, id DESC LIMIT 1',
         [customer_id]
       ).catch(err => {
-        console.error('Error querying by customer_id:', err);
+        console.error('Error querying customer:', err);
         return { rows: [] };
       });
-      
-      // If not found, try by id (in case customer_id is actually numeric string)
-      if (customerResult.rows.length === 0 && /^\d+$/.test(customer_id)) {
-        customerResult = await pool.query(
-          'SELECT id FROM customers WHERE id = $1',
-          [parseInt(customer_id)]
-        ).catch(err => {
-          console.error('Error querying by id:', err);
-          return { rows: [] };
-        });
-      }
       
       if (customerResult.rows.length === 0) {
         return res.status(404).json({
