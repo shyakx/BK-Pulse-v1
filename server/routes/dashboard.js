@@ -55,15 +55,14 @@ async function getRetentionOfficerData(userId) {
     currentMonthData
   ] = await Promise.all([
     // Get assigned customers count from customer_assignments table (active, non-expired assignments)
-    // This matches the logic used in Analysis page
+    // Count ALL assigned customers, not just high-risk ones
     pool.query(
       `SELECT COUNT(DISTINCT c.id) as count 
        FROM customer_assignments ca
        INNER JOIN customers c ON ca.customer_id = c.id
        WHERE ca.officer_id = $1 
          AND ca.is_active = true
-         AND ca.expires_at > CURRENT_TIMESTAMP
-         AND c.churn_score >= 70`,
+         AND (ca.expires_at IS NULL OR ca.expires_at > CURRENT_TIMESTAMP)`,
       [userId]
     ).catch(() => { return { rows: [{ count: 0 }] }; }),
     // Get TOTAL customers count
@@ -78,7 +77,7 @@ async function getRetentionOfficerData(userId) {
        INNER JOIN customers c ON ca.customer_id = c.id
        WHERE ca.officer_id = $1 
          AND ca.is_active = true
-         AND ca.expires_at > CURRENT_TIMESTAMP
+         AND (ca.expires_at IS NULL OR ca.expires_at > CURRENT_TIMESTAMP)
          AND c.risk_level IS NOT NULL`,
       [userId]
     ).catch(() => { return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; }),
@@ -102,7 +101,7 @@ async function getRetentionOfficerData(userId) {
        INNER JOIN customers c ON ca.customer_id = c.id
        WHERE ca.officer_id = $1 
          AND ca.is_active = true
-         AND ca.expires_at > CURRENT_TIMESTAMP
+         AND (ca.expires_at IS NULL OR ca.expires_at > CURRENT_TIMESTAMP)
          AND c.risk_level IS NOT NULL`,
       [userId]
     ).catch(() => { return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; })
@@ -138,7 +137,7 @@ async function getRetentionOfficerData(userId) {
     INNER JOIN customers c ON ca.customer_id = c.id
     WHERE ca.officer_id = $1
       AND ca.is_active = true
-      AND ca.expires_at > CURRENT_TIMESTAMP
+      AND (ca.expires_at IS NULL OR ca.expires_at > CURRENT_TIMESTAMP)
       AND COALESCE(c.updated_at, c.created_at) >= $2
       AND c.risk_level IS NOT NULL
     GROUP BY DATE_TRUNC('month', COALESCE(c.updated_at, c.created_at))
