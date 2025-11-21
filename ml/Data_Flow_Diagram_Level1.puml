@@ -1,0 +1,36 @@
+@startuml
+
+title Data Flow Diagram (Level 1) - BK Pulse
+
+actor User
+
+rectangle "Web App\n(React Frontend)" as APP
+
+rectangle "Backend API\n(Node.js/Express)" as API
+
+rectangle "ML Engine\n(mlPredictor.js + Python)" as MLE
+
+rectangle "Data Store\n(PostgreSQL + CSV files)" as DS
+
+rectangle "Model Repository\n(.pkl files + artifacts)" as MR
+
+rectangle "Database\n(PostgreSQL)" as DB
+
+User --> APP : Inputs Data / Views Dashboard
+
+APP --> API : REST Request\n(Predictions, Reports)
+
+API --> MLE : Prediction Request / Training Trigger
+
+MLE --> DS : Read Features\n(From DB for prediction\nFrom CSV for training)
+
+MLE --> DB : Store Results / Logs\n(Churn scores, metrics)
+
+MLE --> MR : Load/Save Model\n(xgboost_best.pkl, scaler, encoders)
+
+API --> APP : Return Predictions\n(JSON response)
+
+DB --> API : Return Reports\n(Query results)
+
+@enduml
+

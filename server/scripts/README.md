@@ -2,7 +2,7 @@
 
 This directory contains utility scripts for the BK Pulse server.
 
-## Scripts
+## Available Scripts
 
 ### `updateChurnScores.js`
 Updates customer churn scores in the database using the ML model.

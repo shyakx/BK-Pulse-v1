@@ -105,7 +105,7 @@ router.get('/maintenance', authenticateToken, requireRole(['admin']), async (req
 router.post('/backup', authenticateToken, requireRole(['admin']), async (req, res) => {
   try {
     // In a real application, this would trigger an actual backup process
-    // For now, we'll just log the action
+    // Log the backup action
     
     await pool.query(
       `INSERT INTO audit_logs (user_id, action, table_name, ip_address, user_agent)

@@ -14,7 +14,7 @@ from datetime import datetime
 # Configuration
 # Using the fixed dataset that follows BK business rules
 # Path is relative to the script location (ml/ directory)
-RAW_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'raw', 'bk_simulated_churn_dataset_with_segment_200k_FINAL.csv')
+RAW_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'raw', 'bk_pulse_customer_dataset.csv')
 # Paths relative to script location
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROCESSED_DATA_PATH = os.path.join(BASE_DIR, 'data', 'processed', 'processed_data.csv')
@@ -137,10 +137,9 @@ def preprocess_data():
         'Customer_Segment_encoded', 'Gender_encoded', 'Age', 'Nationality_encoded',
         'Account_Type_encoded', 'Branch_encoded', 'Currency_encoded',
         'Balance', 'Tenure_Months', 'Num_Products', 'Has_Credit_Card',
-        # 'Account_Status_encoded',  # REMOVED: Data leakage - derived from Days_Since_Last_Transaction
         'Transaction_Frequency', 'Average_Transaction_Value',
         'Mobile_Banking_Usage', 'Branch_Visits', 'Complaint_History',
-        'Account_Age_Months', 'Days_Since_Last_Transaction', 'Activity_Score',
+        'Account_Age_Months', 'Days_Since_Last_Transaction',
         'Account_Open_Month', 'Account_Open_Year', 'Last_Transaction_Month', 'Last_Transaction_Year'
     ]
     
@@ -152,9 +151,10 @@ def preprocess_data():
     print("Handling missing values...")
     X = X.fillna(X.median())
     
-    # Remove Churn_Probability from features if accidentally included (it's a leak)
-    if 'Churn_Probability' in X.columns:
-        X = X.drop(columns=['Churn_Probability'])
+    # Remove any columns that shouldn't be features (ID, dates, target-related)
+    # Only keep columns that are in the feature_cols list
+    columns_to_keep = feature_cols
+    X = X[[col for col in columns_to_keep if col in X.columns]]
     
     # Save encoders
     print("Saving encoders...")

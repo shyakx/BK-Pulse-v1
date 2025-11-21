@@ -80,13 +80,12 @@ const Navbar = ({ onToggleSidebar, isCollapsed }) => {
                   setLogoError(true);
                 }}
                 onLoad={() => {
-                  console.log('Logo loaded successfully');
+                  // Logo loaded successfully
                 }}
                 style={{ 
                   height: '28px', 
                   width: '28px', 
                   objectFit: 'contain',
-                  // Removed all filters - show logo as-is to ensure visibility
                   display: 'block',
                   maxWidth: '100%',
                   position: 'relative',

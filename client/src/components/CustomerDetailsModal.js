@@ -259,7 +259,9 @@ const CustomerDetailsModal = ({ customerId, isOpen, onClose, onNoteAdded }) => {
                             <li key={idx} className="mb-2">
                               <small className="d-block fw-bold">{rec.action}</small>
                               <small className="text-muted">
-                                Confidence: {(rec.confidence * 100).toFixed(0)}%
+                                Confidence: {typeof rec.confidence === 'number' 
+                                  ? (rec.confidence > 1 ? rec.confidence.toFixed(0) : (rec.confidence * 100).toFixed(0))
+                                  : rec.confidence}%
                               </small>
                             </li>
                           ))}

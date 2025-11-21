@@ -12,7 +12,8 @@ from pathlib import Path
 
 # Paths
 BASE_DIR = Path(__file__).parent
-# Model paths - try LightGBM first, fall back to Gradient Boosting if LightGBM fails
+# Model paths - try current production (XGBoost) first
+XGBOOST_MODEL_PATH = BASE_DIR / '../data/models/xgboost_best.pkl'
 LIGHTGBM_MODEL_PATH = BASE_DIR / '../data/models/lightgbm_best.pkl'
 GRADIENT_BOOSTING_MODEL_PATH = BASE_DIR / '../data/models/gradient_boosting_best.pkl'
 RANDOM_FOREST_MODEL_PATH = BASE_DIR / '../data/models/random_forest_best.pkl'
@@ -41,7 +42,25 @@ def load_artifacts():
     model_name = None
     last_error = None
     
-    # Try LightGBM first (best model if available)
+    # Try XGBoost (current production model)
+    xgboost_path = XGBOOST_MODEL_PATH.resolve()
+    if xgboost_path.exists():
+        try:
+            try:
+                import xgboost  # noqa: F401
+            except (ImportError, FileNotFoundError, OSError) as import_error:
+                print(f"Warning: XGBoost not available ({import_error}). Falling back to other models...", file=sys.stderr)
+            else:
+                model = joblib.load(xgboost_path)
+                model_name = "XGBoost"
+                if hasattr(model, 'predict_proba'):
+                    return model, scaler, encoders
+        except Exception as e:
+            last_error = e
+            print(f"Warning: Could not load XGBoost model: {e}", file=sys.stderr)
+            model = None
+    
+    # Try LightGBM next
     lightgbm_path = LIGHTGBM_MODEL_PATH.resolve()
     if lightgbm_path.exists():
         try:
@@ -99,7 +118,7 @@ def load_artifacts():
     
     # If all models failed, raise an error
     if not model:
-        error_msg = f"Could not load any model. Tried LightGBM, Gradient Boosting, and Random Forest."
+        error_msg = f"Could not load any model. Tried XGBoost, LightGBM, Gradient Boosting, and Random Forest."
         if last_error:
             error_msg += f" Last error: {last_error}"
         raise FileNotFoundError(error_msg)
@@ -215,10 +234,9 @@ def prepare_features(customer_data, encoders):
         'Customer_Segment_encoded', 'Gender_encoded', 'Age', 'Nationality_encoded',
         'Account_Type_encoded', 'Branch_encoded', 'Currency_encoded',
         'Balance', 'Tenure_Months', 'Num_Products', 'Has_Credit_Card',
-        # 'Account_Status_encoded',  # REMOVED: Data leakage - derived from Days_Since_Last_Transaction
         'Transaction_Frequency', 'Average_Transaction_Value',
         'Mobile_Banking_Usage', 'Branch_Visits', 'Complaint_History',
-        'Account_Age_Months', 'Days_Since_Last_Transaction', 'Activity_Score',
+        'Account_Age_Months', 'Days_Since_Last_Transaction',
         'Account_Open_Month', 'Account_Open_Year', 'Last_Transaction_Month', 'Last_Transaction_Year'
     ]
     
@@ -242,9 +260,7 @@ def prepare_features(customer_data, encoders):
         'account_age_months': 'Account_Age_Months',
         'accountAgeMonths': 'Account_Age_Months',
         'days_since_last_transaction': 'Days_Since_Last_Transaction',
-        'daysSinceLastTransaction': 'Days_Since_Last_Transaction',
-        'activity_score': 'Activity_Score',
-        'activityScore': 'Activity_Score'
+        'daysSinceLastTransaction': 'Days_Since_Last_Transaction'
     }
     
     # Normalize column names
@@ -307,7 +323,7 @@ def predict_churn(customer_data, include_shap=False):
     result = {
         'churn_probability': float(churn_probability),
         'churn_prediction': int(churn_prediction),
-        'churn_score': churn_score,  # 0-100 scale with 1 decimal place
+        'churn_score': float(churn_score),  # 0-100 scale with 1 decimal place
         'risk_level': 'high' if churn_probability > 0.7 else ('medium' if churn_probability > 0.4 else 'low')
     }
     

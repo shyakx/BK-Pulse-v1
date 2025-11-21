@@ -14,6 +14,7 @@ const CampaignPerformance = () => {
     fetchCampaignPerformance();
     fetchCampaignCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: fetchCampaignPerformance and fetchCampaignCustomers are stable functions, only id should trigger refetch
   }, [id]);
 
   const fetchCampaignPerformance = async () => {
@@ -30,6 +31,33 @@ const CampaignPerformance = () => {
         const campaign = campaignResponse.campaign;
         const perf = performanceResponse.success ? performanceResponse.performance : null;
 
+        // Calculate ROI: ((Revenue - Cost) / Cost) * 100
+        // If no revenue data, estimate based on retained customers' average balance
+        const budget = parseFloat(campaign.budget) || parseFloat(campaign.allocated_budget) || 0;
+        const retained = campaign.converted_count || perf?.summary?.converted || 0;
+        
+        // Calculate total revenue from daily metrics if available
+        let totalRevenue = 0;
+        if (perf?.daily_metrics && perf.daily_metrics.length > 0) {
+          totalRevenue = perf.daily_metrics.reduce((sum, day) => sum + (parseFloat(day.revenue) || 0), 0);
+        }
+        
+        // If no revenue data, estimate: assume each retained customer has average balance
+        // This is a conservative estimate - in production, use actual revenue data
+        if (totalRevenue === 0 && retained > 0) {
+          // Estimate: average customer balance * retention rate
+          // Using a conservative estimate of 500,000 RWF per retained customer
+          totalRevenue = retained * 500000;
+        }
+        
+        let roi = 0;
+        if (budget > 0) {
+          roi = ((totalRevenue - budget) / budget) * 100;
+        } else if (totalRevenue > 0) {
+          // If no budget set, ROI is infinite (100%+)
+          roi = 100;
+        }
+
         setCampaign({
           id: campaign.id,
           name: campaign.name,
@@ -37,10 +65,13 @@ const CampaignPerformance = () => {
           targeted: campaign.target_count || 0,
           contacted: perf?.summary?.contacted || 0,
           responded: perf?.summary?.responded || 0,
-          retained: campaign.converted_count || perf?.summary?.converted || 0,
+          retained: retained,
           response_rate: perf?.summary?.response_rate || 0,
           retention_rate: perf?.summary?.conversion_rate || 0,
-          roi: 0, // TODO: Calculate from campaign performance
+          roi: roi,
+          budget: budget,
+          revenue: totalRevenue,
+          cost_per_conversion: perf?.summary?.cost_per_conversion || (budget > 0 && retained > 0 ? budget / retained : 0),
           start_date: campaign.start_date || new Date().toISOString(),
           end_date: campaign.end_date || null,
           status: campaign.status,
@@ -113,7 +144,7 @@ const CampaignPerformance = () => {
 
       {/* Campaign Overview Cards */}
       <div className="row mb-4">
-        <div className="col-md-3 mb-3">
+        <div className="col-md-2 mb-3">
           <div className="card">
             <div className="card-body text-center">
               <h3 className="mb-1">{campaign.targeted.toLocaleString()}</h3>
@@ -121,7 +152,7 @@ const CampaignPerformance = () => {
             </div>
           </div>
         </div>
-        <div className="col-md-3 mb-3">
+        <div className="col-md-2 mb-3">
           <div className="card">
             <div className="card-body text-center">
               <h3 className="mb-1">{campaign.contacted.toLocaleString()}</h3>
@@ -129,7 +160,7 @@ const CampaignPerformance = () => {
             </div>
           </div>
         </div>
-        <div className="col-md-3 mb-3">
+        <div className="col-md-2 mb-3">
           <div className="card">
             <div className="card-body text-center">
               <h3 className="mb-1 text-success">{campaign.response_rate.toFixed(1)}%</h3>
@@ -137,7 +168,7 @@ const CampaignPerformance = () => {
             </div>
           </div>
         </div>
-        <div className="col-md-3 mb-3">
+        <div className="col-md-2 mb-3">
           <div className="card">
             <div className="card-body text-center">
               <h3 className="mb-1 text-primary">{campaign.retention_rate.toFixed(1)}%</h3>
@@ -145,7 +176,55 @@ const CampaignPerformance = () => {
             </div>
           </div>
         </div>
+        <div className="col-md-2 mb-3">
+          <div className="card">
+            <div className="card-body text-center">
+              <h3 className={`mb-1 ${campaign.roi >= 0 ? 'text-success' : 'text-danger'}`}>
+                {campaign.roi.toFixed(1)}%
+              </h3>
+              <p className="text-muted mb-0 small">ROI</p>
+            </div>
+          </div>
+        </div>
+        <div className="col-md-2 mb-3">
+          <div className="card">
+            <div className="card-body text-center">
+              <h3 className="mb-1">{campaign.retained.toLocaleString()}</h3>
+              <p className="text-muted mb-0 small">Retained</p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Financial Summary */}
+      {(campaign.budget > 0 || campaign.revenue > 0) && (
+        <div className="row mb-4">
+          <div className="col-md-4 mb-3">
+            <div className="card bg-light">
+              <div className="card-body">
+                <h6 className="text-muted mb-2">Budget</h6>
+                <h4 className="mb-0">RWF {campaign.budget.toLocaleString()}</h4>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-4 mb-3">
+            <div className="card bg-light">
+              <div className="card-body">
+                <h6 className="text-muted mb-2">Revenue Generated</h6>
+                <h4 className="mb-0 text-success">RWF {campaign.revenue.toLocaleString()}</h4>
+              </div>
+            </div>
+          </div>
+          <div className="col-md-4 mb-3">
+            <div className="card bg-light">
+              <div className="card-body">
+                <h6 className="text-muted mb-2">Cost per Conversion</h6>
+                <h4 className="mb-0">RWF {campaign.cost_per_conversion.toLocaleString()}</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Funnel Chart */}
       <div className="card mb-4">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MdAdd, MdEdit, MdPause, MdMoreVert, MdTrendingUp, MdAccountBalance, MdBarChart, MdLightbulb, MdPeople, MdCheckCircle } from 'react-icons/md';
+import { MdAdd, MdEdit, MdPause, MdPlayArrow, MdMoreVert, MdTrendingUp, MdAccountBalance, MdBarChart, MdLightbulb, MdPeople, MdCheckCircle, MdDelete, MdContentCopy } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -12,6 +12,8 @@ const CampaignManagement = () => {
   const [campaignInsights, setCampaignInsights] = useState(null);
   const [wizardStep, setWizardStep] = useState(1);
   const [error, setError] = useState(null);
+  const [editingCampaignId, setEditingCampaignId] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
   const [campaignForm, setCampaignForm] = useState({
     name: '',
     description: '',
@@ -32,6 +34,23 @@ const CampaignManagement = () => {
   useEffect(() => {
     fetchCampaigns();
   }, []);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (openMenuId && !event.target.closest('.campaign-menu-dropdown')) {
+        setOpenMenuId(null);
+      }
+    };
+
+    if (openMenuId) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuId]);
 
   const fetchCampaigns = async () => {
     try {
@@ -103,6 +122,17 @@ const CampaignManagement = () => {
     return badges[status] || 'bg-secondary';
   };
 
+  const formatSegmentName = (segment) => {
+    if (!segment) return 'All Customers';
+    const segmentMap = {
+      'retail': 'Retail',
+      'institutional_banking': 'Institutional Banking',
+      'sme': 'SME (Small & Medium Enterprise)',
+      'corporate': 'Corporate'
+    };
+    return segmentMap[segment] || segment;
+  };
+
   const handleCreateCampaign = async (asDraft = false) => {
     try {
       if (!campaignForm.name) {
@@ -116,33 +146,129 @@ const CampaignManagement = () => {
         budget: campaignForm.budget ? parseFloat(campaignForm.budget) : null
       };
 
-      const response = await api.createCampaign(campaignData);
+      let response;
+      if (editingCampaignId) {
+        // Update existing campaign
+        response = await api.updateCampaign(editingCampaignId, campaignData);
+        if (response.success) {
+          alert(`Campaign updated successfully!`);
+        } else {
+          throw new Error(response.message || 'Failed to update campaign');
+        }
+      } else {
+        // Create new campaign
+        response = await api.createCampaign(campaignData);
+        if (response.success) {
+          alert(`Campaign ${asDraft ? 'saved as draft' : 'created'} successfully!`);
+        } else {
+          throw new Error(response.message || 'Failed to create campaign');
+        }
+      }
+
+      // Reset form and close wizard
+      setShowWizard(false);
+      setWizardStep(1);
+      setEditingCampaignId(null);
+      setCampaignForm({
+        name: '',
+        description: '',
+        campaign_type: 'retention',
+        target_segment: '',
+        target_criteria: {
+          risk_level: [],
+          min_churn_score: null,
+          max_churn_score: null,
+          segment: []
+        },
+        start_date: '',
+        end_date: '',
+        budget: '',
+        status: 'draft'
+      });
+      fetchCampaigns();
+    } catch (err) {
+      alert('Failed to ' + (editingCampaignId ? 'update' : 'create') + ' campaign: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleEditCampaign = (campaign) => {
+    // Parse target_criteria if it's a string
+    let targetCriteria = campaign.target_criteria;
+    if (typeof targetCriteria === 'string') {
+      try {
+        targetCriteria = JSON.parse(targetCriteria);
+      } catch (e) {
+        targetCriteria = {
+          risk_level: [],
+          min_churn_score: null,
+          max_churn_score: null,
+          segment: []
+        };
+      }
+    }
+    
+    // Populate form with campaign data
+    setCampaignForm({
+      name: campaign.name || '',
+      description: campaign.description || '',
+      campaign_type: campaign.campaign_type || 'retention',
+      target_segment: campaign.target_segment || '',
+      target_criteria: targetCriteria || {
+        risk_level: [],
+        min_churn_score: null,
+        max_churn_score: null,
+        segment: []
+      },
+      start_date: campaign.start_date ? campaign.start_date.split('T')[0] : '',
+      end_date: campaign.end_date ? campaign.end_date.split('T')[0] : '',
+      budget: campaign.budget ? String(campaign.budget) : '',
+      status: campaign.status || 'draft'
+    });
+    setEditingCampaignId(campaign.id);
+    setWizardStep(1);
+    setShowWizard(true);
+  };
+
+  const handleToggleCampaignStatus = async (campaign) => {
+    try {
+      const newStatus = campaign.status === 'active' ? 'paused' : 'active';
+      const confirmMessage = newStatus === 'paused' 
+        ? `Are you sure you want to pause "${campaign.name}"?`
+        : `Are you sure you want to resume "${campaign.name}"?`;
+      
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+
+      const response = await api.updateCampaign(campaign.id, { status: newStatus });
       if (response.success) {
-        alert(`Campaign ${asDraft ? 'saved as draft' : 'created'} successfully!`);
-        setShowWizard(false);
-        setWizardStep(1);
-        setCampaignForm({
-          name: '',
-          description: '',
-          campaign_type: 'retention',
-          target_segment: '',
-          target_criteria: {
-            risk_level: [],
-            min_churn_score: null,
-            max_churn_score: null,
-            segment: []
-          },
-          start_date: '',
-          end_date: '',
-          budget: '',
-          status: 'draft'
-        });
+        alert(`Campaign ${newStatus === 'paused' ? 'paused' : 'resumed'} successfully!`);
+        setOpenMenuId(null);
         fetchCampaigns();
       } else {
-        throw new Error(response.message || 'Failed to create campaign');
+        throw new Error(response.message || 'Failed to update campaign status');
       }
     } catch (err) {
-      alert('Failed to create campaign: ' + (err.response?.data?.message || err.message));
+      alert('Failed to update campaign status: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleDeleteCampaign = async (campaign) => {
+    try {
+      if (!window.confirm(`Are you sure you want to delete "${campaign.name}"? This action cannot be undone.`)) {
+        return;
+      }
+
+      const response = await api.deleteCampaign(campaign.id);
+      if (response.success) {
+        alert('Campaign deleted successfully!');
+        setOpenMenuId(null);
+        fetchCampaigns();
+      } else {
+        throw new Error(response.message || 'Failed to delete campaign');
+      }
+    } catch (err) {
+      alert('Failed to delete campaign: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -314,13 +440,95 @@ const CampaignManagement = () => {
                             {campaign.status}
                           </span>
                         </div>
-                        <button className="btn btn-sm btn-link">
-                          <MdMoreVert />
-                        </button>
+                        <div className="dropdown campaign-menu-dropdown" style={{ position: 'relative' }}>
+                          <button 
+                            className="btn btn-sm btn-link"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(openMenuId === campaign.id ? null : campaign.id);
+                            }}
+                            style={{ padding: '0.25rem 0.5rem' }}
+                          >
+                            <MdMoreVert />
+                          </button>
+                          {openMenuId === campaign.id && (
+                            <div 
+                              className="dropdown-menu show"
+                              style={{
+                                position: 'absolute',
+                                right: 0,
+                                top: '100%',
+                                zIndex: 1000,
+                                minWidth: '140px',
+                                marginTop: '0.25rem',
+                                padding: '0.25rem 0',
+                                fontSize: '0.875rem',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                              }}
+                            >
+                              <button 
+                                className="dropdown-item d-flex align-items-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditCampaign(campaign);
+                                  setOpenMenuId(null);
+                                }}
+                                style={{
+                                  padding: '0.375rem 1rem',
+                                  fontSize: '0.875rem',
+                                  lineHeight: '1.4'
+                                }}
+                              >
+                                <MdEdit className="me-2" size={16} />
+                                Edit
+                              </button>
+                              <button 
+                                className="dropdown-item d-flex align-items-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleCampaignStatus(campaign);
+                                }}
+                                style={{
+                                  padding: '0.375rem 1rem',
+                                  fontSize: '0.875rem',
+                                  lineHeight: '1.4'
+                                }}
+                              >
+                                {campaign.status === 'active' ? (
+                                  <>
+                                    <MdPause className="me-2" size={16} />
+                                    Pause
+                                  </>
+                                ) : (
+                                  <>
+                                    <MdPlayArrow className="me-2" size={16} />
+                                    Resume
+                                  </>
+                                )}
+                              </button>
+                              <div className="dropdown-divider" style={{ margin: '0.25rem 0' }}></div>
+                              <button 
+                                className="dropdown-item d-flex align-items-center text-danger"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteCampaign(campaign);
+                                }}
+                                style={{
+                                  padding: '0.375rem 1rem',
+                                  fontSize: '0.875rem',
+                                  lineHeight: '1.4'
+                                }}
+                              >
+                                <MdDelete className="me-2" size={16} />
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="mb-3">
                         <p className="text-muted small mb-1">Target Segment</p>
-                        <p className="mb-0">{campaign.target_segment}</p>
+                        <p className="mb-0">{formatSegmentName(campaign.target_segment)}</p>
                       </div>
                       <div className="row mb-3">
                         <div className="col-6">
@@ -347,7 +555,7 @@ const CampaignManagement = () => {
                       )}
                       <div className="d-flex justify-content-between align-items-center">
                         <small className="text-muted">
-                          {new Date(campaign.start_date).toLocaleDateString()} - {new Date(campaign.end_date).toLocaleDateString()}
+                          {campaign.start_date ? new Date(campaign.start_date).toLocaleDateString() : 'No start date'} - {campaign.end_date ? new Date(campaign.end_date).toLocaleDateString() : 'No end date'}
                         </small>
                         <div>
                           <Link
@@ -356,11 +564,19 @@ const CampaignManagement = () => {
                           >
                             View
                           </Link>
-                          <button className="btn btn-sm btn-outline-secondary me-2">
+                          <button 
+                            className="btn btn-sm btn-outline-secondary me-2"
+                            onClick={() => handleEditCampaign(campaign)}
+                            title="Edit Campaign"
+                          >
                             <MdEdit />
                           </button>
-                          <button className="btn btn-sm btn-outline-warning">
-                            <MdPause />
+                          <button 
+                            className={`btn btn-sm ${campaign.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'}`}
+                            onClick={() => handleToggleCampaignStatus(campaign)}
+                            title={campaign.status === 'active' ? 'Pause Campaign' : 'Resume Campaign'}
+                          >
+                            {campaign.status === 'active' ? <MdPause /> : <MdPlayArrow />}
                           </button>
                         </div>
                       </div>
@@ -379,10 +595,27 @@ const CampaignManagement = () => {
           <div className="modal-dialog modal-lg">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Create New Campaign</h5>
+                <h5 className="modal-title">{editingCampaignId ? 'Edit Campaign' : 'Create New Campaign'}</h5>
                 <button type="button" className="btn-close" onClick={() => {
                   setShowWizard(false);
                   setWizardStep(1);
+                  setEditingCampaignId(null);
+                  setCampaignForm({
+                    name: '',
+                    description: '',
+                    campaign_type: 'retention',
+                    target_segment: '',
+                    target_criteria: {
+                      risk_level: [],
+                      min_churn_score: null,
+                      max_churn_score: null,
+                      segment: []
+                    },
+                    start_date: '',
+                    end_date: '',
+                    budget: '',
+                    status: 'draft'
+                  });
                 }}></button>
               </div>
               <div className="modal-body">
@@ -487,13 +720,18 @@ const CampaignManagement = () => {
                     <p className="text-muted">Select target customer segment and criteria</p>
                     <div className="mb-3">
                       <label className="form-label">Target Segment</label>
-                      <input
-                        type="text"
-                        className="form-control"
+                      <select
+                        className="form-select"
                         value={campaignForm.target_segment}
                         onChange={(e) => handleFormChange('target_segment', e.target.value)}
-                        placeholder="e.g., High Risk Customers"
-                      />
+                      >
+                        <option value="">All Customers</option>
+                        <option value="retail">Retail</option>
+                        <option value="institutional_banking">Institutional Banking</option>
+                        <option value="sme">SME (Small & Medium Enterprise)</option>
+                        <option value="corporate">Corporate</option>
+                      </select>
+                      <small className="form-text text-muted">Select a specific customer segment to target, or leave as "All Customers" to use criteria filters only</small>
                     </div>
                     <div className="mb-3">
                       <label className="form-label">Risk Level</label>
@@ -587,7 +825,7 @@ const CampaignManagement = () => {
                         <h6 className="card-title">Campaign Summary</h6>
                         <div className="small">
                           <p><strong>Type:</strong> {campaignForm.campaign_type}</p>
-                          <p><strong>Target Segment:</strong> {campaignForm.target_segment || 'All Customers'}</p>
+                          <p><strong>Target Segment:</strong> {formatSegmentName(campaignForm.target_segment)}</p>
                           {campaignForm.start_date && <p><strong>Start:</strong> {new Date(campaignForm.start_date).toLocaleDateString()}</p>}
                           {campaignForm.end_date && <p><strong>End:</strong> {new Date(campaignForm.end_date).toLocaleDateString()}</p>}
                           {campaignForm.budget && <p><strong>Budget:</strong> RWF {parseFloat(campaignForm.budget).toLocaleString()}</p>}
@@ -622,7 +860,7 @@ const CampaignManagement = () => {
                             </tr>
                             <tr>
                               <th>Target Segment:</th>
-                              <td>{campaignForm.target_segment || 'All Customers'}</td>
+                              <td>{formatSegmentName(campaignForm.target_segment)}</td>
                             </tr>
                             <tr>
                               <th>Dates:</th>
@@ -673,16 +911,28 @@ const CampaignManagement = () => {
                       onClick={() => handleCreateCampaign(true)}
                       disabled={!campaignForm.name}
                     >
-                      Save as Draft
+                      {editingCampaignId ? 'Save Changes' : 'Save as Draft'}
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={() => handleCreateCampaign(false)}
-                      disabled={!campaignForm.name}
-                    >
-                      Launch Campaign
-                    </button>
+                    {!editingCampaignId && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => handleCreateCampaign(false)}
+                        disabled={!campaignForm.name}
+                      >
+                        Launch Campaign
+                      </button>
+                    )}
+                    {editingCampaignId && (
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => handleCreateCampaign(false)}
+                        disabled={!campaignForm.name}
+                      >
+                        Update Campaign
+                      </button>
+                    )}
                   </>
                 )}
               </div>

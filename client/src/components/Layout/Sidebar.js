@@ -73,14 +73,12 @@ const LogoImage = ({ size = '40px' }) => {
         setLogoError(true);
       }}
       onLoad={() => {
-        console.log('Logo loaded successfully from:', logoPath);
         setImageLoaded(true);
       }}
       style={{ 
         height: size, 
         width: size, 
         objectFit: 'contain',
-        // Removed all filters - show logo as-is to ensure visibility
         transition: 'all 0.3s ease',
         display: 'block',
         opacity: imageLoaded ? 1 : 0.8

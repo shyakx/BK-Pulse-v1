@@ -8,7 +8,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const pool = require('../config/database');
 
 // Configuration
-const TOTAL_CUSTOMERS = 170000;
+const TOTAL_CUSTOMERS = 123000; // Updated to match current dataset size
 const BATCH_SIZE = 1000; // Insert in batches for performance
 
 // Data pools for diversity

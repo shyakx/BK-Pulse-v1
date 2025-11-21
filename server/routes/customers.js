@@ -5,9 +5,20 @@ const { authenticateToken } = require('../middleware/auth');
 const { transformCustomerForPrediction } = require('../utils/mlPredictor');
 const { predictChurn } = require('../utils/mlPredictor');
 
-// @route   GET /api/customers
-// @desc    Get all customers with filters
-// @access  Private
+/**
+ * @route   GET /api/customers
+ * @desc    Get paginated list of customers with optional filtering and search
+ * @access  Private
+ * @param   {Number} req.query.page - Page number (default: 1)
+ * @param   {Number} req.query.limit - Items per page (default: 10)
+ * @param   {String} req.query.search - Search term for customer name or ID
+ * @param   {String} req.query.segment - Filter by customer segment
+ * @param   {String} req.query.risk_level - Filter by risk level (low, medium, high)
+ * @param   {String} req.query.branch - Filter by branch
+ * @param   {Number} req.query.min_churn_score - Minimum churn score filter
+ * @param   {Number} req.query.max_churn_score - Maximum churn score filter
+ * @returns {Object} Paginated customer list with total count
+ */
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const {
@@ -245,8 +256,8 @@ router.get('/:id/recommendations', authenticateToken, async (req, res) => {
             dbCustomer.id,
             'v2.1',
             rec.action,
-            rec.confidence,
-            rec.priority,
+            rec.confidence, // Already 0-100 from dynamic calculation
+            (rec.estimatedImpact || rec.priority || 'Medium').substring(0, 50), // Use estimatedImpact, truncate to 50 chars for DB
             'pending'
           ]
         );
@@ -302,13 +313,6 @@ router.get('/:id', authenticateToken, async (req, res) => {
         const customerData = transformCustomerForPrediction(customer);
         const prediction = await predictChurn(customerData);
 
-        // Log prediction details for debugging
-        console.log(`[Prediction Refresh] Customer: ${customer.customer_id}`);
-        console.log(`  - Old churn_score: ${customer.churn_score}`);
-        console.log(`  - New churn_score: ${prediction.churn_score}`);
-        console.log(`  - Old risk_level: ${customer.risk_level}`);
-        console.log(`  - New risk_level: ${prediction.risk_level}`);
-        console.log(`  - Prediction details:`, JSON.stringify(prediction, null, 2));
 
         // Ensure churn_score is a number (handle both integer and decimal)
         const churnScore = typeof prediction.churn_score === 'number' 
@@ -327,7 +331,6 @@ router.get('/:id', authenticateToken, async (req, res) => {
         );
         if (updatedResult.rows.length > 0) {
           customer = updatedResult.rows[0];
-          console.log(`  - Stored churn_score: ${customer.churn_score}`);
         }
       } catch (predictError) {
         console.error('Error refreshing prediction:', predictError);
@@ -434,11 +437,6 @@ router.post('/:id/predict', authenticateToken, async (req, res) => {
       });
     }
 
-    // Log prediction details for debugging
-    console.log(`[Customer Predict API] Customer: ${dbCustomer.customer_id}`);
-    console.log(`  - Old churn_score: ${dbCustomer.churn_score}`);
-    console.log(`  - New churn_score: ${prediction.churn_score}`);
-    console.log(`  - Risk level: ${prediction.risk_level || 'unknown'}`);
 
     // Ensure churn_score is a number (handle both integer and decimal)
     const churnScore = typeof prediction.churn_score === 'number' 
@@ -463,10 +461,6 @@ router.post('/:id/predict', authenticateToken, async (req, res) => {
         'SELECT churn_score, risk_level FROM customers WHERE id = $1',
         [dbCustomer.id]
       );
-      if (verifyResult.rows.length > 0) {
-        console.log(`  - Stored churn_score: ${verifyResult.rows[0].churn_score}`);
-        console.log(`  - Stored risk_level: ${verifyResult.rows[0].risk_level}`);
-      }
     } catch (dbError) {
       console.error('Database update error:', dbError);
       return res.status(500).json({

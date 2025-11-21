@@ -65,7 +65,7 @@ function parseCSV(content) {
 }
 
 // Use the fixed dataset file (with corrected account_status)
-const DATASET_PATH = path.join(__dirname, '../../data/raw/bk_simulated_churn_dataset_with_segment_200k_FINAL.csv');
+const DATASET_PATH = path.join(__dirname, '../../data/raw/bk_pulse_customer_dataset.csv');
 const OUTPUT_CSV_PATH = path.join(__dirname, '../../data/exported_seeded_customers.csv');
 const BATCH_SIZE = 500;
 const TOTAL_TO_IMPORT = 50000;
@@ -201,11 +201,21 @@ function mapDatasetRowToDb(row, index) {
   // Generate name based on nationality
   const name = generateName(nationality, gender, parseInt(customerId) || index);
   
-  // Calculate churn_score from Churn_Probability (0-1) to percentage (0-100)
-  // Try different possible column names
-  const churnProbability = parseFloat(row.Churn_Probability || row['Churn_Probability'] || row.churn_probability || 0);
-  const churnScore = churnProbability > 0 ? Math.round(churnProbability * 100 * 10) / 10 : null; // Round to 1 decimal
-  const riskLevel = churnScore !== null ? calculateRiskLevel(churnProbability) : null;
+  // Derive lightweight activity score so downstream features stay consistent
+  const mobileUsage = parseInt(row.Mobile_Banking_Usage) || 0;
+  const txnFrequency = parseInt(row.Transaction_Frequency) || 0;
+  const daysSince = parseInt(row.Days_Since_Last_Transaction) || 0;
+  const branchVisits = parseInt(row.Branch_Visits) || 0;
+  const rawActivityScore =
+    mobileUsage * 0.5 +
+    txnFrequency * 0.3 +
+    branchVisits * 2 -
+    daysSince * 0.1;
+  const activityScore = Math.max(0, Math.min(100, Math.round(rawActivityScore)));
+
+  // Churn scores will be calculated by ML model after seeding
+  const churnScore = null;
+  const riskLevel = null;
   
   // Parse dates
   const accountOpenDate = parseDate(row.Account_Open_Date);
@@ -249,7 +259,7 @@ function mapDatasetRowToDb(row, index) {
     complaint_history: parseInt(row.Complaint_History) || 0,
     account_age_months: parseInt(row.Account_Age_Months) || 12,
     days_since_last_transaction: parseInt(row.Days_Since_Last_Transaction) || 0,
-    activity_score: parseFloat(row.Activity_Score) || 0,
+    activity_score: activityScore,
     account_open_date: accountOpenDate,
     last_transaction_date: finalLastTransactionDate,
     created_at: new Date().toISOString(),

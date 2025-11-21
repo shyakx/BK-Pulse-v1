@@ -25,11 +25,12 @@ const MyTasks = () => {
       if (user.role === 'retentionOfficer') {
         fetchAssignedCustomers();
       } else {
-    fetchTasks();
+        fetchTasks();
       }
-    fetchAssignedCustomersCount();
+      fetchAssignedCustomersCount();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: Functions are stable, only refetch when activeTab or user changes
   }, [activeTab, user]);
 
   const fetchAssignedCustomersCount = async () => {
@@ -671,7 +672,6 @@ const MyTasks = () => {
                                     console.error('Customer missing ID:', customer);
                                     alert('Error: Customer ID is missing');
                                   } else {
-                                    console.log(`[MyTasks] Navigating to customer: ${idToUse} (customer_id: ${customer.customer_id}, id: ${customer.id})`);
                                   }
                                 }}
                               >

@@ -34,31 +34,13 @@ const pages = {
       icon: "note",
       section: "core"
     },
-    // ===== PREDICTIONS & INSIGHTS =====
-    {
-      name: "Predictions",
-      route: "/prediction-insights",
-      description: "View churn predictions for your assigned customers and run batch predictions.",
-      components: ["PredictionConfiguration", "PredictionProgress", "ResultsSummary", "RiskSegmentationTable", "ExportOptions", "IndividualPredictions"],
-      icon: "analytics",
-      section: "insights"
-    },
-    // ===== PERFORMANCE & REPORTS =====
     {
       name: "Performance",
       route: "/performance",
-      description: "Track your personal performance metrics and retention success.",
-      components: ["PerformanceKPIs", "MonthlyTrendChart", "Leaderboard", "RecentSuccesses"],
+      description: "Track personal performance metrics, retention rates, and leaderboard ranking.",
+      components: ["PerformanceMetrics", "RetentionTrendChart", "Leaderboard", "RecentSuccesses"],
       icon: "trending_up",
-      section: "performance"
-    },
-    {
-      name: "Reports",
-      route: "/reports",
-      description: "Generate reports on your customer retention activities and performance.",
-      components: ["ReportGenerator", "ExportButtons", "TrendCharts"],
-      icon: "assessment",
-      section: "performance"
+      section: "core"
     }
   ],
 
@@ -98,14 +80,6 @@ const pages = {
     },
     // ===== ANALYTICAL & STRATEGIC SUPPORT PAGES =====
     {
-      name: "Behavior Analysis",
-      route: "/behavioral-analysis",
-      description: "Detect early churn signals from usage data. Find behavioral shifts that predict churn before it happens.",
-      components: ["BehavioralPatterns", "TransactionAnalysis", "UsageTrends", "EarlyWarningSignals", "AnomalyDetection"],
-      icon: "assessment",
-      section: "analytical"
-    },
-    {
       name: "Campaigns",
       route: "/campaigns",
       description: "Measure impact of retention campaigns. Prove ROI of past retention actions and refine new strategies.",
@@ -114,29 +88,28 @@ const pages = {
       section: "analytical"
     },
     {
-      name: "Explainability",
-      route: "/explainability",
-      description: "Understand why the model made a prediction. Ensure decisions are fair, auditable, and regulator-friendly.",
-      components: ["SHAPExplanation", "FeatureImportance", "ModelInterpretability", "FairnessMetrics", "ComplianceReports"],
-      icon: "insights",
+      name: "Model Insights",
+      route: "/model-insights",
+      description: "Track model health, accuracy, and explainability. Understand why the model made predictions.",
+      components: ["ModelMetricsDashboard", "PerformanceOverTime", "SHAPExplanation", "FeatureImportance", "ModelInterpretability"],
+      icon: "auto_awesome",
       section: "analytical"
     },
-    // ===== ADVANCED / TECHNICAL ANALYST TOOLS =====
     {
-      name: "Model Performance",
-      route: "/model-insights",
-      description: "Track model health and accuracy. Ensure predictions remain reliable; alert if performance drops.",
-      components: ["ModelMetricsDashboard", "PerformanceOverTime", "ConfusionMatrix", "FeatureImportanceChart", "ModelComparison", "PredictionDistribution"],
-      icon: "auto_awesome",
-      section: "advanced"
+      name: "Analysis",
+      route: "/analysis",
+      description: "Advanced customer analysis with filters, segmentation, and behavioral insights.",
+      components: ["CustomerAnalysisTable", "AdvancedFilters", "SegmentationTools", "BehavioralInsights"],
+      icon: "analytics",
+      section: "analytical"
     },
     {
-      name: "Data",
-      route: "/data-management",
-      description: "Data quality and access. Check data refresh, fix source errors, or audit model changes.",
-      components: ["DataQualityDashboard", "DataRefreshStatus", "SourceErrorTracking", "AuditLog", "ModelChangeHistory"],
-      icon: "storage",
-      section: "advanced"
+      name: "Reports",
+      route: "/reports",
+      description: "Generate performance reports and customer analysis reports for stakeholders.",
+      components: ["ReportGenerator", "ReportTemplates", "ExportOptions", "ReportHistory"],
+      icon: "assessment",
+      section: "analytical"
     }
   ],
 
@@ -183,29 +156,20 @@ const pages = {
       icon: "approval",
       section: "team"
     },
-    // ===== STRATEGIC ANALYSIS =====
     {
-      name: "Analytics",
+      name: "Strategic Analytics",
       route: "/strategic-analytics",
-      description: "Deep-dive strategic analysis with CLV, cohort analysis, and predictive scenarios.",
-      components: ["CLVAnalysis", "CohortAnalysis", "ProductAffinity", "CompetitiveAnalysis", "PredictiveScenarios"],
-      icon: "analytics",
+      description: "Deep-dive analysis with CLV, cohort analysis, and predictive scenarios.",
+      components: ["CLVAnalysis", "CohortAnalysis", "PredictiveScenarios", "StrategicKPIs"],
+      icon: "trending_up",
       section: "analytical"
     },
     {
       name: "Budget & ROI",
       route: "/budget-roi",
-      description: "Financial oversight with budget tracking, ROI analysis, and cost-benefit evaluation.",
-      components: ["BudgetDashboard", "ROIAnalysis", "CostBenefitAnalysis"],
+      description: "Track retention budget allocation, spending, and return on investment.",
+      components: ["BudgetOverview", "ROIAnalysis", "CampaignROI", "BudgetForecast"],
       icon: "attach_money",
-      section: "analytical"
-    },
-    {
-      name: "Reports",
-      route: "/reports",
-      description: "Generate executive reports with strategic insights and team performance.",
-      components: ["ReportGenerator", "ExportButtons", "TrendCharts", "ExecutiveDashboards"],
-      icon: "assessment",
       section: "analytical"
     }
   ],
@@ -256,18 +220,18 @@ const pages = {
       section: "configuration"
     },
     {
-      name: "Audit",
+      name: "Audit Logs",
       route: "/admin/audit",
-      description: "Track system usage, compliance, data privacy, and security audit logs.",
-      components: ["AuditLog", "ComplianceReports", "DataPrivacy"],
+      description: "View system activity logs, user actions, and compliance audit trail.",
+      components: ["AuditLogTable", "AuditFilters", "ExportAuditLog", "AuditDetails"],
       icon: "security",
       section: "configuration"
     },
     {
-      name: "Maintenance",
+      name: "Backup & Maintenance",
       route: "/admin/maintenance",
-      description: "System maintenance: backups, database optimization, and system updates.",
-      components: ["BackupManagement", "DatabaseMaintenance", "SystemUpdates"],
+      description: "Database backups, system optimization, and maintenance operations.",
+      components: ["BackupStatus", "BackupSchedule", "DatabaseOptimization", "SystemHealth"],
       icon: "backup",
       section: "configuration"
     }

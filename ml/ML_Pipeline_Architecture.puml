@@ -1,0 +1,48 @@
+@startuml
+
+title ML Pipeline System Architecture - BK Pulse
+
+rectangle "User Interface\n(React Web App)" as UI
+
+rectangle "Backend API\n(Node.js/Express)" as API
+
+rectangle "ML Service Layer\n(mlPredictor.js)" as ML
+
+rectangle "Python ML Scripts\n(predict.py, train_model.py)" as PYTHON
+
+rectangle "Model Store\n(.pkl files + artifacts)" as MODEL
+
+rectangle "Database\n(PostgreSQL)" as DB
+
+rectangle "Data Store\n(CSV files: raw/processed)" as DATA
+
+rectangle "Monitoring\n(model_performance table)" as MON
+
+rectangle "Scheduler / Automation\n(Cron jobs / Manual scripts)" as SCHED
+
+UI --> API : HTTP Requests\n(Dashboard, Predictions)
+
+API --> ML : Call ML Predictor\n(predictChurn, predictChurnBatch)
+
+ML --> PYTHON : Spawn Python Process\n(pass customer data via stdin)
+
+PYTHON --> MODEL : Load Model Artifacts\n(xgboost_best.pkl, scaler.pkl, encoders.pkl)
+
+PYTHON --> DATA : Read Training Data\n(if retraining)
+
+PYTHON --> API : Return Predictions\n(JSON via stdout)
+
+API --> DB : Store/Retrieve\nCustomer Data & Scores
+
+ML --> DB : Update Churn Scores\n(After prediction)
+
+SCHED --> PYTHON : Trigger Retraining\n(clean_and_retrain.py)
+
+PYTHON --> MODEL : Save Updated Model\n(After training)
+
+PYTHON --> MON : Log Metrics\n(model_performance table)
+
+MON --> API : Query Performance\n(For dashboard)
+
+@enduml
+

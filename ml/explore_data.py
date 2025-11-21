@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 # Configuration
-RAW_DATA_PATH = '../data/raw/bk_simulated_churn_dataset_with_segment_200k_FINAL.csv'
+RAW_DATA_PATH = '../data/raw/bk_pulse_customer_dataset.csv'
 OUTPUT_DIR = '../data/processed/eda_results'
 
 
@@ -115,8 +115,7 @@ def numerical_analysis(df):
     
     numerical_cols = ['Age', 'Tenure_Months', 'Num_Products', 'Balance',
                      'Transaction_Frequency', 'Mobile_Banking_Usage', 'Branch_Visits',
-                     'Complaint_History', 'Account_Age_Months', 'Days_Since_Last_Transaction',
-                     'Activity_Score', 'Churn_Probability']
+                     'Complaint_History', 'Account_Age_Months', 'Days_Since_Last_Transaction']
     
     print("\nNumerical Variables Summary:")
     summary_stats = df_temp[numerical_cols].describe()
@@ -180,7 +179,7 @@ def create_visualizations(df):
     
     # 4. Correlation Heatmap
     numerical_cols = ['Age', 'Tenure_Months', 'Num_Products', 'Balance',
-                     'Transaction_Frequency', 'Activity_Score', 'Churn_Flag']
+                     'Transaction_Frequency', 'Churn_Flag']
     plt.figure(figsize=(12, 10))
     corr_matrix = df_temp[numerical_cols].corr()
     sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='coolwarm', center=0)

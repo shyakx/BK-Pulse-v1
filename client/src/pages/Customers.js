@@ -61,7 +61,8 @@ const Customers = () => {
   useEffect(() => {
     fetchCustomers(1, searchTerm, filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
+    // Note: Intentionally only run on mount to avoid infinite loops with searchTerm/filters
+  }, []);
 
   // Refresh customers
   const handleRefresh = () => {

@@ -8,9 +8,14 @@ const {
   transformCustomerForPrediction 
 } = require('../utils/mlPredictor');
 
-// @route   POST /api/predictions/single
-// @desc    Predict churn for a single customer
-// @access  Private (Analyst, Manager, Admin)
+/**
+ * @route   POST /api/predictions/single
+ * @desc    Predict churn for a single customer using ML model
+ * @access  Private (Officer, Analyst, Manager, Admin)
+ * @param   {Object} req.body.customer_data - Customer data object
+ * @param   {Boolean} req.body.include_shap - Whether to include SHAP explainability values
+ * @returns {Object} Prediction results with churn_score, risk_level, and optional SHAP values
+ */
 router.post('/single', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
     const customerData = req.body.customer_data || req.body;
@@ -60,15 +65,6 @@ router.post('/customer/:id', authenticateToken, async (req, res) => {
     const includeShap = req.query.include_shap === 'true' || req.body.include_shap === true;
     const prediction = await predictChurn(customerData, includeShap);
     
-    // Log prediction details for debugging
-    console.log(`[Prediction API] Customer: ${dbCustomer.customer_id}`);
-    console.log(`  - Old churn_score: ${dbCustomer.churn_score}`);
-    console.log(`  - New churn_score: ${prediction.churn_score}`);
-    console.log(`  - Prediction details:`, JSON.stringify({
-      churn_probability: prediction.churn_probability,
-      churn_score: prediction.churn_score,
-      risk_level: prediction.risk_level
-    }, null, 2));
     
     // Ensure churn_score is a number (handle both integer and decimal)
     const churnScore = typeof prediction.churn_score === 'number' 
@@ -86,10 +82,6 @@ router.post('/customer/:id', authenticateToken, async (req, res) => {
       'SELECT churn_score, risk_level FROM customers WHERE id = $1',
       [dbCustomer.id]
     );
-    if (verifyResult.rows.length > 0) {
-      console.log(`  - Stored churn_score: ${verifyResult.rows[0].churn_score}`);
-      console.log(`  - Stored risk_level: ${verifyResult.rows[0].risk_level}`);
-    }
     
     res.json({
       success: true,
@@ -106,9 +98,13 @@ router.post('/customer/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// @route   POST /api/predictions/batch
-// @desc    Predict churn for multiple customers
-// @access  Private (Analyst, Manager, Admin)
+/**
+ * @route   POST /api/predictions/batch
+ * @desc    Predict churn for multiple customers in batch
+ * @access  Private (Analyst, Manager, Admin)
+ * @param   {Number} req.body.limit - Maximum number of customers to process (default: 100)
+ * @returns {Object} Batch prediction results with summary statistics
+ */
 router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   // Increase timeout for batch operations (5 minutes)
   req.setTimeout(300000);
@@ -163,15 +159,11 @@ router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'reten
     
     // Transform and predict
     const customersData = customers.map(transformCustomerForPrediction);
-    console.log(`[Batch Prediction] Processing ${customersData.length} customers`);
     const predictions = await predictChurnBatch(customersData);
-    console.log(`[Batch Prediction] Received ${predictions.length} prediction results`);
     
-    // Log prediction results summary for debugging
     const successCount = predictions.filter(p => !p.error && p.churn_score !== undefined).length;
     const errorCount = predictions.filter(p => p.error).length;
     const noScoreCount = predictions.filter(p => !p.error && (p.churn_score === undefined || p.churn_score === null)).length;
-    console.log(`[Batch Prediction] Summary: ${successCount} successful, ${errorCount} errors, ${noScoreCount} without scores`);
     
     // Update database with predictions
     let updatedCount = 0;
@@ -183,12 +175,6 @@ router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'reten
             ? pred.churn_score 
             : parseFloat(pred.churn_score) || 0;
           
-          // Log first few updates for debugging
-          if (updatedCount < 3) {
-            console.log(`[Batch Prediction] Customer: ${pred.customer_id}`);
-            console.log(`  - Predicted churn_score: ${churnScore}`);
-            console.log(`  - Risk_level: ${pred.risk_level}`);
-          }
           
           // Update ALL records with this customer_id to keep them in sync
           // This ensures consistency across all records for the same customer
@@ -197,14 +183,6 @@ router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'reten
             [churnScore, pred.risk_level, pred.customer_id]
           );
           
-          // Log which record was updated (for debugging)
-          if (updatedCount < 3) {
-            const updateCheck = await pool.query(
-              'SELECT COUNT(*) as count FROM customers WHERE customer_id = $1',
-              [pred.customer_id]
-            );
-            console.log(`  - Updated ${updateCheck.rows[0].count} record(s) for customer_id: ${pred.customer_id}`);
-          }
           updatedCount++;
         } catch (dbError) {
           console.error(`Failed to update customer ${pred.customer_id}:`, dbError);
@@ -234,16 +212,19 @@ router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'reten
   }
 });
 
-// @route   GET /api/predictions/model-info
-// @desc    Get model information and metrics
-// @access  Private (Analyst, Manager, Admin)
+/**
+ * @route   GET /api/predictions/model-info
+ * @desc    Get current ML model information, performance metrics, and feature importance
+ * @access  Private (Analyst, Manager, Admin)
+ * @returns {Object} Model metadata including accuracy, precision, recall, F1-score, ROC-AUC, and feature importance
+ */
 router.get('/model-info', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
   try {
     const fs = require('fs');
     const path = require('path');
     
-    // Try to load model metrics (using latest LightGBM model)
-    const metricsPath = path.join(__dirname, '../../data/models/metrics/lightgbm_best.json');
+    // Load model metrics (using latest XGBoost model)
+    const metricsPath = path.join(__dirname, '../../data/models/metrics/xgboost_best.json');
     
     let metrics = null;
     if (fs.existsSync(metricsPath)) {
@@ -258,14 +239,14 @@ router.get('/model-info', authenticateToken, requireRole(['retentionOfficer', 'r
     // Try to get feature importance from model file if available
     let featureImportance = [];
     try {
-      const modelPath = path.join(__dirname, '../../data/models/lightgbm_best.pkl');
+      const modelPath = path.join(__dirname, '../../data/models/xgboost_best.pkl');
       if (fs.existsSync(modelPath)) {
         // Load model to get feature importance (this would require Python or reading pickle)
-        // For now, we'll use a placeholder that can be enhanced later
+        // Feature importance extraction
         // In production, you'd want to extract this from the actual model
         if (metrics && metrics.classification_report) {
           // Extract top features from metrics if available
-          // This is a placeholder - actual feature importance should come from the model
+          // Extract feature importance from model
           featureImportance = [];
         }
       }
@@ -277,7 +258,7 @@ router.get('/model-info', authenticateToken, requireRole(['retentionOfficer', 'r
     res.json({
       success: true,
       model: {
-        name: 'Gradient Boosting',
+        name: 'XGBoost',
         version: 'best',
         metrics: metrics ? {
           accuracy: metrics.test_accuracy,

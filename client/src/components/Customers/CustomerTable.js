@@ -134,7 +134,7 @@ const CustomerTable = ({ customers = [], onFilter, onSort }) => {
               // Always use customer_id (actual customer ID like 100012), not id (database ID like 424010)
               const customerId = customer.customer_id || customer.id;
               if (!customerId) {
-                console.error(`[CustomerTable] No valid ID found for customer:`, customer);
+                // Customer ID missing - skip navigation
               }
               return (
               <tr key={customerId || `customer-${index}`}>
@@ -200,8 +200,6 @@ const CustomerTable = ({ customers = [], onFilter, onSort }) => {
                           console.error('Customer missing ID:', customer);
                           alert('Error: Customer ID is missing');
                         } else {
-                          // Log for debugging
-                          console.log(`[CustomerTable] Navigating to customer: ${idToUse} (customer_id: ${customer.customer_id}, id: ${customer.id})`);
                         }
                       }}
                     >

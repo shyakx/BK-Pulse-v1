@@ -112,7 +112,6 @@ The model requires the following fields (some have defaults):
 - `Complaint_History` (default: 0)
 - `Account_Age_Months` (default: 0)
 - `Days_Since_Last_Transaction` (default: 0)
-- `Activity_Score` (default: 0)
 - `Account_Open_Date` (optional)
 - `Last_Transaction_Date` (optional)
 

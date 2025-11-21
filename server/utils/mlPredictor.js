@@ -174,14 +174,6 @@ async function predictChurnBatch(customersData, onProgress) {
           ...result,
           customer_id: customerId
         };
-        // Log first few successful predictions for debugging
-        if (processed <= 3) {
-          console.log(`[Batch Predict] Customer ${customerId}:`, {
-            churn_score: finalResult.churn_score,
-            risk_level: finalResult.risk_level,
-            hasError: !!finalResult.error
-          });
-        }
         return finalResult;
       }).catch(error => {
         processed++;
@@ -257,7 +249,6 @@ function transformCustomerForPrediction(dbCustomer) {
     Complaint_History: dbCustomer.complaint_history || 0,
     Account_Age_Months: accountAgeMonths || 12,
     Days_Since_Last_Transaction: daysSinceLastTransaction || 0,
-    Activity_Score: dbCustomer.activity_score || 15.0,
     Account_Open_Date: dbCustomer.account_open_date || dbCustomer.created_at,
     Last_Transaction_Date: dbCustomer.last_transaction_date || dbCustomer.updated_at
   };

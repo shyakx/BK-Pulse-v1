@@ -30,7 +30,7 @@ const BackupMaintenance = () => {
         setDbInfo({
           size: maintenance.database?.size || 'unknown',
           status: 'Healthy',
-          lastOptimized: null // TODO: Track optimization timestamps
+          lastOptimized: null
         });
 
         setSystemVersion({

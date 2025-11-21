@@ -88,11 +88,6 @@ function App() {
                   <MyTasks />
                 </Suspense>
               } />
-              <Route path="performance" element={
-                <Suspense fallback={<LoadingSpinner />}>
-                  <Performance />
-                </Suspense>
-              } />
               
               {/* Retention Analyst routes - Core Daily Use */}
               <Route path="prediction-insights" element={
@@ -107,11 +102,6 @@ function App() {
               } />
               
               {/* Retention Analyst routes - Analytical & Strategic */}
-              <Route path="behavioral-analysis" element={
-                <Suspense fallback={<LoadingSpinner />}>
-                  <Analysis />
-                </Suspense>
-              } />
               <Route path="campaigns" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <CampaignManagement />
@@ -122,26 +112,13 @@ function App() {
                   <CampaignPerformance />
                 </Suspense>
               } />
-              <Route path="explainability" element={
-                <Suspense fallback={<LoadingSpinner />}>
-                  <ModelInsights />
-                </Suspense>
-              } />
               
-              {/* Retention Analyst routes - Advanced Tools */}
+              {/* Retention Analyst routes - Model Insights (merged explainability) */}
               <Route path="model-insights" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <ModelInsights />
                 </Suspense>
               } />
-              <Route path="data-management" element={
-                <Suspense fallback={<LoadingSpinner />}>
-                  <AdminData />
-                </Suspense>
-              } />
-              
-              {/* Legacy routes for backward compatibility */}
-              <Route path="analysis" element={<Navigate to="/behavioral-analysis" replace />} />
               
               {/* Retention Manager routes */}
               <Route path="team" element={
@@ -154,23 +131,46 @@ function App() {
                   <Approvals />
                 </Suspense>
               } />
+              
+              {/* Performance page - Officer+ */}
+              <Route path="performance" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Performance />
+                </Suspense>
+              } />
+              
+              {/* Analysis page - Analyst+ */}
+              <Route path="analysis" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Analysis />
+                </Suspense>
+              } />
+              
+              {/* Reports page - Analyst+ */}
+              <Route path="reports" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Reports />
+                </Suspense>
+              } />
+              
+              {/* Strategic Analytics page - Manager+ */}
               <Route path="strategic-analytics" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <StrategicAnalytics />
                 </Suspense>
               } />
+              
+              {/* Budget ROI page - Manager+ */}
               <Route path="budget-roi" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <BudgetROI />
                 </Suspense>
               } />
               
-              {/* Reports route for all roles */}
-              <Route path="reports" element={
-                <Suspense fallback={<LoadingSpinner />}>
-                  <Reports />
-                </Suspense>
-              } />
+              {/* Legacy route redirects - backward compatibility */}
+              <Route path="behavioral-analysis" element={<Navigate to="/customers" replace />} />
+              <Route path="explainability" element={<Navigate to="/model-insights" replace />} />
+              <Route path="data-management" element={<Navigate to="/dashboard" replace />} />
               
               {/* Admin routes */}
               <Route path="admin/dashboard" element={
@@ -201,13 +201,6 @@ function App() {
                   </Suspense>
                 </ProtectedRoute>
               } />
-              <Route path="admin/audit" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <AdminAudit />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
               <Route path="admin/settings" element={
                 <ProtectedRoute requiredRole="admin">
                   <Suspense fallback={<LoadingSpinner />}>
@@ -215,6 +208,17 @@ function App() {
                   </Suspense>
                 </ProtectedRoute>
               } />
+              
+              {/* Admin Audit page */}
+              <Route path="admin/audit" element={
+                <ProtectedRoute requiredRole="admin">
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AdminAudit />
+                  </Suspense>
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin Backup & Maintenance page */}
               <Route path="admin/maintenance" element={
                 <ProtectedRoute requiredRole="admin">
                   <Suspense fallback={<LoadingSpinner />}>
@@ -222,13 +226,9 @@ function App() {
                   </Suspense>
                 </ProtectedRoute>
               } />
-              <Route path="admin/reports" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <Reports />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
+              
+              {/* Admin routes */}
+              <Route path="admin/reports" element={<Navigate to="/admin/dashboard" replace />} />
               
               {/* Catch all route */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />

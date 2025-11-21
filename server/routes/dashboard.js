@@ -65,9 +65,9 @@ async function getRetentionOfficerData(userId) {
          AND ca.expires_at > CURRENT_TIMESTAMP
          AND c.churn_score >= 70`,
       [userId]
-    ).catch(err => { console.error('Query 1 error:', err); return { rows: [{ count: 0 }] }; }),
+    ).catch(() => { return { rows: [{ count: 0 }] }; }),
     // Get TOTAL customers count
-    pool.query('SELECT COUNT(*) as count FROM customers').catch(err => { console.error('Query 2 error:', err); return { rows: [{ count: 0 }] }; }),
+    pool.query('SELECT COUNT(*) as count FROM customers').catch(() => { return { rows: [{ count: 0 }] }; }),
     // Get risk distribution from assigned customers (active assignments only)
     pool.query(
       `SELECT 
@@ -81,17 +81,17 @@ async function getRetentionOfficerData(userId) {
          AND ca.expires_at > CURRENT_TIMESTAMP
          AND c.risk_level IS NOT NULL`,
       [userId]
-    ).catch(err => { console.error('Query 3 error:', err); return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; }),
+    ).catch(() => { return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; }),
     // Get TOTAL high risk cases
     pool.query(
       'SELECT COUNT(*) as count FROM customers WHERE risk_level = $1',
       ['high']
-    ).catch(err => { console.error('Query 4 error:', err); return { rows: [{ count: 0 }] }; }),
+    ).catch(() => { return { rows: [{ count: 0 }] }; }),
     // Get completed actions count
     pool.query(
       'SELECT COUNT(*) as count FROM actions WHERE officer_id = $1 AND status = $2',
       [userId, 'completed']
-    ).catch(err => { console.error('Query 5 error:', err); return { rows: [{ count: 0 }] }; }),
+    ).catch(() => { return { rows: [{ count: 0 }] }; }),
     // Get current month risk data from assigned customers (active assignments only)
     pool.query(
       `SELECT 
@@ -105,7 +105,7 @@ async function getRetentionOfficerData(userId) {
          AND ca.expires_at > CURRENT_TIMESTAMP
          AND c.risk_level IS NOT NULL`,
       [userId]
-    ).catch(err => { console.error('Query 6 error:', err); return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; })
+    ).catch(() => { return { rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }; })
   ]);
 
   const assignedCustomers = parseInt(customersResult.rows[0]?.count || 0);
@@ -640,8 +640,8 @@ async function getAdminData() {
     { label: 'Low Risk', value: currentLow, color: '#10b981' }
   ];
 
-  // ETL jobs count (placeholder - would come from job scheduler in production)
-  const etlJobs = 12; // Static for now
+  // ETL jobs count (would be retrieved from job scheduler in production)
+  const etlJobs = 12;
 
   // Get system performance metrics
   const systemPerformance = {

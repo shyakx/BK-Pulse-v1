@@ -42,27 +42,10 @@ const PredictionInsights = () => {
       
       // Calculate segmentation from results
       const predictionsData = response.predictions || [];
-      console.log('[PredictionInsights] Received predictions:', {
-        total: predictionsData.length,
-        sample: predictionsData.slice(0, 3),
-        summary: response.summary
-      });
       
       const validPredictions = predictionsData.filter(p => {
-        const isValid = !p.error && p.churn_score !== undefined && p.churn_score !== null;
-        if (!isValid) {
-          console.log('[PredictionInsights] Invalid prediction:', {
-            customer_id: p.customer_id,
-            hasError: !!p.error,
-            error: p.error,
-            churn_score: p.churn_score,
-            churn_score_type: typeof p.churn_score
-          });
-        }
-        return isValid;
+        return !p.error && p.churn_score !== undefined && p.churn_score !== null;
       });
-      
-      console.log('[PredictionInsights] Valid predictions:', validPredictions.length, 'out of', predictionsData.length);
       
       if (validPredictions.length === 0) {
         // Provide more detailed error message using server summary if available
@@ -137,14 +120,6 @@ const PredictionInsights = () => {
         ? enrichedPredictions.reduce((sum, p) => sum + (parseFloat(p.churn_score) || 0), 0) / enrichedPredictions.length 
         : 0;
       
-      console.log('[PredictionInsights] Segmentation:', {
-        critical: critical.length,
-        high: high.length,
-        medium: medium.length,
-        low: low.length,
-        avgChurnProb: avgChurnProb.toFixed(2)
-      });
-
       // Calculate at-risk balance
       const criticalBalance = critical.reduce((sum, p) => {
         const customer = customerDetails.find(c => 
