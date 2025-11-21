@@ -228,29 +228,36 @@ function transformCustomerForPrediction(dbCustomer) {
       : parseFloat(dbCustomer.account_balance);
   }
   
+  // Safely format segment
+  let segment = 'Retail';
+  if (dbCustomer.segment) {
+    const seg = String(dbCustomer.segment);
+    segment = seg.charAt(0).toUpperCase() + seg.slice(1).toLowerCase();
+  }
+
   return {
-    Customer_ID: dbCustomer.customer_id,
-    Customer_Segment: (dbCustomer.segment || 'Retail').charAt(0).toUpperCase() + (dbCustomer.segment || 'Retail').slice(1).toLowerCase(),
+    Customer_ID: dbCustomer.customer_id || String(dbCustomer.id || 'UNKNOWN'),
+    Customer_Segment: segment,
     Age: dbCustomer.age || 50,
     Gender: dbCustomer.gender || 'Male',
     Nationality: dbCustomer.nationality || 'Rwandan',
     Account_Type: dbCustomer.product_type || 'Savings',
     Branch: dbCustomer.branch || 'Kigali Main',
     Currency: dbCustomer.currency || 'RWF',
-    Balance: balance,
+    Balance: isNaN(balance) ? 0 : balance,
     Tenure_Months: dbCustomer.tenure_months || accountAgeMonths || 12,
     Num_Products: dbCustomer.num_products || 1,
     Has_Credit_Card: dbCustomer.has_credit_card ? 1 : 0,
     Account_Status: dbCustomer.account_status || 'Active',
     Transaction_Frequency: dbCustomer.transaction_frequency || 10,
-    Average_Transaction_Value: dbCustomer.average_transaction_value || (balance * 0.05),
+    Average_Transaction_Value: dbCustomer.average_transaction_value || (isNaN(balance) ? 0 : balance * 0.05),
     Mobile_Banking_Usage: dbCustomer.mobile_banking_usage || 10,
     Branch_Visits: dbCustomer.branch_visits || 5,
     Complaint_History: dbCustomer.complaint_history || 0,
     Account_Age_Months: accountAgeMonths || 12,
     Days_Since_Last_Transaction: daysSinceLastTransaction || 0,
-    Account_Open_Date: dbCustomer.account_open_date || dbCustomer.created_at,
-    Last_Transaction_Date: dbCustomer.last_transaction_date || dbCustomer.updated_at
+    Account_Open_Date: dbCustomer.account_open_date || dbCustomer.created_at || new Date().toISOString(),
+    Last_Transaction_Date: dbCustomer.last_transaction_date || dbCustomer.updated_at || new Date().toISOString()
   };
 }
 

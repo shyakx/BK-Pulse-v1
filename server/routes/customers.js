@@ -213,12 +213,24 @@ router.get('/:id/shap', authenticateToken, async (req, res) => {
     let prediction;
     try {
       prediction = await predictChurn(customerData, true); // include_shap = true
+      
+      // Validate prediction result
+      if (!prediction) {
+        throw new Error('Prediction returned null or undefined');
+      }
     } catch (predictError) {
-      console.error('SHAP prediction error:', predictError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to generate prediction with SHAP values',
-        error: predictError.message
+      console.error('SHAP prediction error:', {
+        error: predictError.message,
+        stack: predictError.stack,
+        customerId: dbCustomer.customer_id
+      });
+      
+      // Return empty SHAP values if prediction fails (non-critical)
+      return res.json({
+        success: true,
+        customer_id: dbCustomer.customer_id,
+        shap_values: [],
+        warning: 'SHAP values could not be calculated: ' + predictError.message
       });
     }
 
@@ -307,12 +319,42 @@ router.get('/:id/recommendations', authenticateToken, async (req, res) => {
     let prediction;
     try {
       prediction = await predictChurn(customerData, true);
+      
+      // Validate prediction result
+      if (!prediction) {
+        throw new Error('Prediction returned null or undefined');
+      }
     } catch (predictError) {
-      console.error('Prediction error in recommendations:', predictError);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to generate prediction',
-        error: predictError.message
+      console.error('Prediction error in recommendations:', {
+        error: predictError.message,
+        stack: predictError.stack,
+        customerId: dbCustomer.customer_id
+      });
+      
+      // Return basic recommendations even if prediction fails
+      const { generateRecommendations } = require('../utils/recommendationEngine');
+      const fallbackPrediction = {
+        churn_score: dbCustomer.churn_score || 50,
+        churn_probability: (dbCustomer.churn_score || 50) / 100,
+        risk_level: dbCustomer.risk_level || 'medium',
+        shap_values: []
+      };
+      
+      const recommendations = generateRecommendations(
+        dbCustomer,
+        fallbackPrediction,
+        []
+      );
+      
+      return res.json({
+        success: true,
+        customer_id: dbCustomer.customer_id,
+        recommendations: recommendations,
+        prediction: {
+          churn_score: fallbackPrediction.churn_score,
+          risk_level: fallbackPrediction.risk_level
+        },
+        warning: 'Prediction could not be refreshed: ' + predictError.message
       });
     }
     

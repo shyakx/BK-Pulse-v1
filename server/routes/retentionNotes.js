@@ -271,6 +271,33 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/', authenticateToken, async (req, res) => {
   try {
+    // Ensure retention_notes table exists
+    try {
+      await pool.query('SELECT 1 FROM retention_notes LIMIT 1');
+    } catch (tableError) {
+      // Table doesn't exist, create it
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS retention_notes (
+          id SERIAL PRIMARY KEY,
+          customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+          officer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          note TEXT NOT NULL,
+          priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+          follow_up_date DATE,
+          status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'archived', 'resolved')),
+          tags TEXT[],
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_retention_notes_customer_id ON retention_notes(customer_id);
+        CREATE INDEX IF NOT EXISTS idx_retention_notes_officer_id ON retention_notes(officer_id);
+        CREATE INDEX IF NOT EXISTS idx_retention_notes_status ON retention_notes(status);
+        CREATE INDEX IF NOT EXISTS idx_retention_notes_created_at ON retention_notes(created_at);
+      `);
+    }
+
     const { customer_id, note, priority = 'medium', follow_up_date, status = 'active', tags = [] } = req.body;
 
     if (!note || !customer_id) {
