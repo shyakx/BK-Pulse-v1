@@ -396,6 +396,9 @@ See `ml/README.md` for detailed documentation on the ML pipeline.
 
 ## 📚 Documentation
 
+Need quick pointers while exploring the codebase? Start with `USER_GUIDE.md`
+for product workflows, then dive into the docs listed below for setup details.
+
 ### User Documentation
 - **[USER_GUIDE.md](USER_GUIDE.md)** - Complete user guide and feature documentation
 
