@@ -349,6 +349,63 @@ export const api = {
   generateCustomers: (count) => {
     return apiClient.post('/admin/customers/generate', { count });
   },
+
+  // Incentive Analytics
+  getIncentiveAnalytics: (params = {}) => {
+    return apiClient.get('/incentives/analytics', { params });
+  },
+
+  getIncentiveUsage: (params = {}) => {
+    return apiClient.get('/incentives/usage', { params });
+  },
+
+  getIncentiveROI: (params = {}) => {
+    return apiClient.get('/incentives/roi', { params });
+  },
+
+  // Data Quality Monitor
+  getDataQualityMetrics: () => {
+    return apiClient.get('/data-quality/metrics');
+  },
+
+  getDataQualityAlerts: () => {
+    return apiClient.get('/data-quality/alerts');
+  },
+
+  getPipelineStatus: () => {
+    return apiClient.get('/data-quality/pipeline-status');
+  },
+
+  getDataDrift: () => {
+    return apiClient.get('/data-quality/drift');
+  },
+
+  // Notifications
+  getNotifications: (params = {}) => {
+    return apiClient.get('/notifications', { params });
+  },
+
+  markNotificationRead: (id) => {
+    return apiClient.patch(`/notifications/${id}/read`);
+  },
+
+  markAllNotificationsRead: () => {
+    return apiClient.patch('/notifications/read-all');
+  },
+
+  // Customer Management
+  createCustomer: (customerData) => {
+    return apiClient.post('/customers', customerData);
+  },
+
+  // User Profile
+  updateProfile: (profileData) => {
+    return apiClient.patch('/auth/profile', profileData);
+  },
+
+  updatePassword: (passwordData) => {
+    return apiClient.patch('/auth/password', passwordData);
+  },
 };
 
 export default api;

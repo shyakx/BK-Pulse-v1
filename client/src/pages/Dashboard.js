@@ -4,6 +4,10 @@ import api from '../services/api';
 import ChurnOverviewCard from '../components/Dashboard/ChurnOverviewCard';
 import TaskList from '../components/Dashboard/TaskList';
 import AlertsChart from '../components/Dashboard/AlertsChart';
+import DailyActionItems from '../components/Dashboard/DailyActionItems';
+import ActivityOverview from '../components/Dashboard/ActivityOverview';
+import PerformanceHighlights from '../components/Dashboard/PerformanceHighlights';
+import QuickActions from '../components/Dashboard/QuickActions';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -81,7 +85,7 @@ const Dashboard = () => {
       fetchDashboardData();
       fetchRecentTasks();
     }
-  }, [user]); // Removed function dependencies to prevent re-fetching
+  }, [user, fetchDashboardData, fetchRecentTasks]);
 
   const getDashboardContent = () => {
     switch (user?.role) {
@@ -159,12 +163,37 @@ const Dashboard = () => {
                 />
               </div>
             </div>
+
+            {/* Daily Action Items */}
+            <div className="row mb-4">
+              <div className="col-md-12 mb-4">
+                <DailyActionItems dailyActions={dashboardData?.dailyActions} />
+              </div>
+            </div>
+
+            {/* Customer Activity Overview and Performance Highlights */}
+            <div className="row mb-4">
+              <div className="col-md-6 mb-4">
+                <ActivityOverview activityOverview={dashboardData?.activityOverview} />
+              </div>
+              <div className="col-md-6 mb-4">
+                <PerformanceHighlights performance={dashboardData?.performance} />
+              </div>
+            </div>
             
-            <div className="row">
+            {/* Engagement Trend Chart and Quick Actions */}
+            <div className="row mb-4">
               <div className="col-md-8 mb-4">
-                <AlertsChart title="Customer Risk Trends" data={dashboardData} />
+                <AlertsChart title="Customer 6-Month Engagement Trend" type="bar" data={dashboardData} />
               </div>
               <div className="col-md-4 mb-4">
+                <QuickActions />
+              </div>
+            </div>
+
+            {/* Recent Tasks */}
+            <div className="row">
+              <div className="col-md-12 mb-4">
                 <TaskList tasks={tasks.length > 0 ? tasks : []} />
               </div>
             </div>

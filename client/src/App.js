@@ -25,12 +25,15 @@ const AdminSettings = lazy(() => import('./pages/AdminSettings'));
 const RetentionNotes = lazy(() => import('./pages/RetentionNotes'));
 const MyTasks = lazy(() => import('./pages/MyTasks'));
 const Performance = lazy(() => import('./pages/Performance'));
+const RetentionScripts = lazy(() => import('./pages/RetentionScripts'));
 const PredictionInsights = lazy(() => import('./pages/PredictionInsights'));
 const CampaignManagement = lazy(() => import('./pages/CampaignManagement'));
 const CampaignPerformance = lazy(() => import('./pages/CampaignPerformance'));
 const StrategicAnalytics = lazy(() => import('./pages/StrategicAnalytics'));
 const BudgetROI = lazy(() => import('./pages/BudgetROI'));
 const BackupMaintenance = lazy(() => import('./pages/BackupMaintenance'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 // Loading component
 const LoadingSpinner = () => (
@@ -88,6 +91,11 @@ function App() {
                   <MyTasks />
                 </Suspense>
               } />
+              <Route path="retention-scripts" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <RetentionScripts />
+                </Suspense>
+              } />
               
               {/* Retention Analyst routes - Core Daily Use */}
               <Route path="prediction-insights" element={
@@ -101,7 +109,7 @@ function App() {
                 </Suspense>
               } />
               
-              {/* Retention Analyst routes - Analytical & Strategic */}
+              {/* Retention Analyst routes - Strategic & Analytics */}
               <Route path="campaigns" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <CampaignManagement />
@@ -113,7 +121,7 @@ function App() {
                 </Suspense>
               } />
               
-              {/* Retention Analyst routes - Model Insights (merged explainability) */}
+              {/* Retention Analyst routes - Model Insights */}
               <Route path="model-insights" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <ModelInsights />
@@ -136,6 +144,18 @@ function App() {
               <Route path="performance" element={
                 <Suspense fallback={<LoadingSpinner />}>
                   <Performance />
+                </Suspense>
+              } />
+              
+              {/* Profile and Settings */}
+              <Route path="profile" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Profile />
+                </Suspense>
+              } />
+              <Route path="settings" element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Settings />
                 </Suspense>
               } />
               
@@ -171,6 +191,7 @@ function App() {
               <Route path="behavioral-analysis" element={<Navigate to="/customers" replace />} />
               <Route path="explainability" element={<Navigate to="/model-insights" replace />} />
               <Route path="data-management" element={<Navigate to="/dashboard" replace />} />
+              <Route path="my-tasks" element={<Navigate to="/tasks" replace />} />
               
               {/* Admin routes */}
               <Route path="admin/dashboard" element={

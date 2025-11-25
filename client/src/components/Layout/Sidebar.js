@@ -275,6 +275,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse }) => {
                 const analyticalPages = userPages.filter(p => p.section === 'analytical' && !p.route.includes(':id'));
                 const performancePages = userPages.filter(p => p.section === 'performance' && !p.route.includes(':id'));
                 const advancedPages = userPages.filter(p => p.section === 'advanced' && !p.route.includes(':id'));
+                const governancePages = userPages.filter(p => p.section === 'governance' && !p.route.includes(':id'));
                 
                 const renderPage = (page, index, prefix) => {
                   const IconComponent = getIcon(page.icon);
@@ -405,6 +406,12 @@ const Sidebar = ({ isCollapsed, toggleCollapse }) => {
                       <>
                         {renderDivider('Advanced Tools')}
                         {advancedPages.map((page, index) => renderPage(page, index, 'advanced'))}
+                      </>
+                    )}
+                    {governancePages.length > 0 && (
+                      <>
+                        {renderDivider('Governance & Reporting')}
+                        {governancePages.map((page, index) => renderPage(page, index, 'governance'))}
                       </>
                     )}
                   </>

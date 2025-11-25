@@ -41,6 +41,14 @@ const pages = {
       components: ["PerformanceMetrics", "RetentionTrendChart", "Leaderboard", "RecentSuccesses"],
       icon: "trending_up",
       section: "core"
+    },
+    {
+      name: "Retention Scripts",
+      route: "/retention-scripts",
+      description: "Guided conversation flows and communication templates for effective customer retention.",
+      components: ["ScriptCategories", "PhoneScripts", "SMSTemplates", "EmailTemplates", "AIGeneratedScripts"],
+      icon: "chat",
+      section: "core"
     }
   ],
 
@@ -49,67 +57,60 @@ const pages = {
     {
       name: "Dashboard",
       route: "/dashboard",
-      description: "High-level churn trends and KPIs. Quickly check today's churn numbers, top drivers, and customer loss impact.",
-      components: ["ExecutiveKPIs", "ChurnTrendChart", "RiskDistributionChart", "ChurnDriversChart", "BranchPerformanceMap", "AccountTypeAnalysis"],
+      description: "Analytics dashboard with overall churn rates, high-risk trends, reactivation success, segment movement, financial impact, and top churn drivers.",
+      components: ["ChurnRates", "HighRiskTrends", "ReactivationSuccess", "SegmentMovement", "FinancialImpact", "TopChurnDrivers", "ModelDriftAlerts", "DataQualityAlerts"],
       icon: "dashboard",
       section: "core"
     },
     {
       name: "Predictions",
       route: "/prediction-insights",
-      description: "Individual and group churn predictions. Identify which customers are most likely to churn soon and export target lists.",
-      components: ["PredictionConfiguration", "PredictionProgress", "ResultsSummary", "RiskSegmentationTable", "ExportOptions", "IndividualPredictions"],
+      description: "Daily prediction batches, segment counts, accuracy tracking, confidence distribution, and batch comparisons.",
+      components: ["DailyPredictionBatches", "SegmentCounts", "AccuracyTracking", "ConfidenceDistribution", "BatchComparison", "AnomalyDetection"],
       icon: "analytics",
-      section: "core"
-    },
-    {
-      name: "Customers",
-      route: "/customers",
-      description: "Deep dive into single customer data. Investigate why a particular customer is at risk before outreach.",
-      components: ["CustomerTable", "CustomerInfo", "RiskAssessment", "SHAPExplanation", "RecommendedActions", "RetentionNotes"],
-      icon: "people",
       section: "core"
     },
     {
       name: "Recommendations",
       route: "/recommendations",
-      description: "Suggested actions for at-risk customers. Choose or test the most effective intervention per customer.",
-      components: ["RecommendationsTable", "RecommendationFilters", "ActionPrioritization", "ConfidenceScores", "ImpactAnalysis"],
+      description: "Model-driven strategic recommendations at segment and product level. Incentive impact recommendations and strategic actions.",
+      components: ["StrategicRecommendations", "SegmentRecommendations", "ProductOpportunities", "IncentiveImpact", "RecommendationPrioritization"],
       icon: "thumb_up",
       section: "core"
     },
-    // ===== ANALYTICAL & STRATEGIC SUPPORT PAGES =====
+    // ===== STRATEGIC & ANALYTICS PAGES =====
     {
       name: "Campaigns",
       route: "/campaigns",
-      description: "Measure impact of retention campaigns. Prove ROI of past retention actions and refine new strategies.",
-      components: ["ActiveCampaigns", "CampaignPerformance", "ROIAnalysis", "CampaignWizard", "CampaignComparison"],
+      description: "Full campaign view: performance, reach, conversions, earnings recovered, incentive effectiveness, A/B tests, and cost vs revenue impact.",
+      components: ["CampaignPerformance", "CampaignReach", "Conversions", "EarningsRecovered", "IncentiveEffectiveness", "ABTestResults", "CostRevenueAnalysis", "ScenarioSimulations"],
       icon: "campaign",
-      section: "analytical"
-    },
-    {
-      name: "Model Insights",
-      route: "/model-insights",
-      description: "Track model health, accuracy, and explainability. Understand why the model made predictions.",
-      components: ["ModelMetricsDashboard", "PerformanceOverTime", "SHAPExplanation", "FeatureImportance", "ModelInterpretability"],
-      icon: "auto_awesome",
       section: "analytical"
     },
     {
       name: "Analysis",
       route: "/analysis",
-      description: "Advanced customer analysis with filters, segmentation, and behavioral insights.",
-      components: ["CustomerAnalysisTable", "AdvancedFilters", "SegmentationTools", "BehavioralInsights"],
+      description: "General analytics: inactivity patterns, salary drops, digital vs non-digital usage, inflow/outflow patterns, product adoption, CLV, region-based risk, and socio-demographic trends.",
+      components: ["InactivityPatterns", "SalaryDropPatterns", "DigitalUsageAnalysis", "InflowOutflowPatterns", "ProductAdoption", "CLVAnalysis", "RegionRisk", "SocioDemographicTrends", "CustomQueryBuilder"],
       icon: "analytics",
       section: "analytical"
     },
     {
+      name: "Model Insights",
+      route: "/model-insights",
+      description: "ML transparency: SHAP plots, feature importance, global & local explanations, performance metrics, confusion matrix, model/data drift detection, version history, and retraining logs.",
+      components: ["SHAPSummary", "FeatureImportance", "GlobalLocalExplanations", "PerformanceMetrics", "ConfusionMatrix", "DriftDetection", "VersionHistory", "RetrainingLogs"],
+      icon: "auto_awesome",
+      section: "analytical"
+    },
+    // ===== GOVERNANCE & REPORTING =====
+    {
       name: "Reports",
       route: "/reports",
-      description: "Generate performance reports and customer analysis reports for stakeholders.",
-      components: ["ReportGenerator", "ReportTemplates", "ExportOptions", "ReportHistory"],
+      description: "Weekly churn reports, monthly reactivation reports, segment performance, incentive ROI, campaign summaries, model monitoring, and predictive accuracy reports.",
+      components: ["WeeklyChurnReport", "MonthlyReactivationReport", "SegmentPerformance", "IncentiveROI", "CampaignSummaries", "ModelMonitoring", "AccuracyReports", "ExportOptions", "ReportScheduling"],
       icon: "assessment",
-      section: "analytical"
+      section: "governance"
     }
   ],
 

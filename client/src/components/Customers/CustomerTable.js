@@ -209,6 +209,14 @@ const CustomerTable = ({ customers = [], onFilter, onSort }) => {
                       className="btn btn-sm btn-outline-secondary"
                       title="Contact Customer"
                       style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                      onClick={() => {
+                        const phone = customer.phone || customer.phone_number;
+                        if (phone) {
+                          window.location.href = `tel:${phone}`;
+                        } else {
+                          alert(`No phone number available for ${customer.name}`);
+                        }
+                      }}
                     >
                       <MdPhone size={16} />
                     </button>

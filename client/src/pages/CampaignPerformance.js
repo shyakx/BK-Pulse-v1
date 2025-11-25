@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MdDownload, MdArrowBack } from 'react-icons/md';
 import api from '../services/api';
@@ -10,14 +10,7 @@ const CampaignPerformance = () => {
   const [loading, setLoading] = useState(true);
   const [customersLoading, setCustomersLoading] = useState(false);
 
-  useEffect(() => {
-    fetchCampaignPerformance();
-    fetchCampaignCustomers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Note: fetchCampaignPerformance and fetchCampaignCustomers are stable functions, only id should trigger refetch
-  }, [id]);
-
-  const fetchCampaignPerformance = async () => {
+  const fetchCampaignPerformance = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -86,9 +79,9 @@ const CampaignPerformance = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
-  const fetchCampaignCustomers = async () => {
+  const fetchCampaignCustomers = useCallback(async () => {
     try {
       setCustomersLoading(true);
       const response = await api.getCampaignCustomers(id, { limit: 100 });
@@ -102,7 +95,12 @@ const CampaignPerformance = () => {
     } finally {
       setCustomersLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchCampaignPerformance();
+    fetchCampaignCustomers();
+  }, [fetchCampaignPerformance, fetchCampaignCustomers]);
 
   if (loading) {
     return (

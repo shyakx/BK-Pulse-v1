@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import CustomerTable from '../components/Customers/CustomerTable';
 import FilterBar from '../components/Customers/FilterBar';
@@ -18,9 +18,23 @@ const Customers = () => {
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [filters, setFilters] = useState({});
   const [batchUpdating, setBatchUpdating] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addingCustomer, setAddingCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    customer_id: '',
+    name: '',
+    email: '',
+    phone: '',
+    segment: '',
+    branch: '',
+    product_type: '',
+    account_balance: '',
+    salary: '',
+    digital_user: false
+  });
 
   // Fetch customers from API
-  const fetchCustomers = async (page = 1, search = '', filterParams = {}) => {
+  const fetchCustomers = useCallback(async (page = 1, search = '', filterParams = {}) => {
     try {
       setLoading(true);
       setError(null);
@@ -55,14 +69,12 @@ const Customers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [itemsPerPage]);
 
   // Initial load
   useEffect(() => {
     fetchCustomers(1, searchTerm, filters);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Note: Intentionally only run on mount to avoid infinite loops with searchTerm/filters
-  }, []);
+  }, [fetchCustomers, searchTerm, filters]);
 
   // Refresh customers
   const handleRefresh = () => {
@@ -168,6 +180,111 @@ const Customers = () => {
     fetchCustomers(page, searchTerm, filters);
   };
 
+  const handleExport = () => {
+    if (currentCustomers.length === 0) {
+      alert('No customers to export');
+      return;
+    }
+
+    // Create CSV content
+    let csvContent = 'Customer Export\n';
+    csvContent += `Generated: ${new Date().toLocaleString()}\n`;
+    csvContent += `Total Customers: ${currentCustomers.length}\n\n`;
+    
+    // CSV Headers
+    csvContent += 'Customer ID,Name,Email,Phone,Segment,Branch,Product Type,Churn Score (%),Risk Level,Balance (RWF),Last Updated\n';
+    
+    // CSV Data
+    currentCustomers.forEach(customer => {
+      const row = [
+        customer.customer_id || customer.id || '',
+        `"${(customer.name || '').replace(/"/g, '""')}"`,
+        customer.email || '',
+        customer.phone || customer.phone_number || '',
+        customer.segment || '',
+        customer.branch || '',
+        customer.product_type || '',
+        (parseFloat(customer.churn_score) || 0).toFixed(1),
+        customer.risk_level || 'low',
+        parseFloat(customer.account_balance || 0).toFixed(2),
+        customer.updated_at ? new Date(customer.updated_at).toLocaleDateString() : 'N/A'
+      ];
+      csvContent += row.join(',') + '\n';
+    });
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const dateStr = new Date().toISOString().split('T')[0];
+    a.download = `customers_export_${dateStr}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleAddCustomer = async () => {
+    // Validate required fields
+    if (!newCustomer.customer_id || !newCustomer.name || !newCustomer.email) {
+      alert('Please fill in all required fields (Customer ID, Name, Email)');
+      return;
+    }
+
+    try {
+      setAddingCustomer(true);
+      const customerData = {
+        customer_id: newCustomer.customer_id,
+        name: newCustomer.name,
+        email: newCustomer.email,
+        phone: newCustomer.phone || null,
+        segment: newCustomer.segment || null,
+        branch: newCustomer.branch || null,
+        product_type: newCustomer.product_type || null,
+        account_balance: newCustomer.account_balance ? parseFloat(newCustomer.account_balance) : 0,
+        salary: newCustomer.salary ? parseFloat(newCustomer.salary) : null,
+        digital_user: newCustomer.digital_user
+      };
+
+      const response = await api.createCustomer(customerData);
+      
+      if (response.success) {
+        alert('Customer added successfully!');
+        setShowAddModal(false);
+        setNewCustomer({
+          customer_id: '',
+          name: '',
+          email: '',
+          phone: '',
+          segment: '',
+          branch: '',
+          product_type: '',
+          account_balance: '',
+          salary: '',
+          digital_user: false
+        });
+        // Refresh customer list
+        fetchCustomers(currentPage, searchTerm, filters);
+      } else {
+        throw new Error(response.message || 'Failed to add customer');
+      }
+    } catch (err) {
+      console.error('Error adding customer:', err);
+      alert(err.message || 'Failed to add customer. Please try again.');
+    } finally {
+      setAddingCustomer(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewCustomer(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
   // Calculate display indices
   const startIndex = totalCustomers > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
   const endIndex = Math.min(currentPage * itemsPerPage, totalCustomers);
@@ -232,11 +349,17 @@ const Customers = () => {
               {batchUpdating ? 'Updating Predictions...' : 'Update Predictions'}
             </button>
           )}
-          <button className="btn btn-outline-primary">
+          <button 
+            className="btn btn-outline-primary"
+            onClick={handleExport}
+          >
             <MdDownload className="me-2" />
             Export
           </button>
-          <button className="btn btn-primary">
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowAddModal(true)}
+          >
             <MdAdd className="me-2" />
             Add Customer
           </button>
@@ -326,6 +449,194 @@ const Customers = () => {
               </li>
             </ul>
           </nav>
+        </div>
+      )}
+
+      {/* Add Customer Modal */}
+      {showAddModal && (
+        <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Add New Customer</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowAddModal(false)}
+                  disabled={addingCustomer}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Customer ID <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="customer_id"
+                      value={newCustomer.customer_id}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 100001"
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Full Name <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="name"
+                      value={newCustomer.name}
+                      onChange={handleInputChange}
+                      placeholder="John Doe"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Email <span className="text-danger">*</span></label>
+                    <input
+                      type="email"
+                      className="form-control"
+                      name="email"
+                      value={newCustomer.email}
+                      onChange={handleInputChange}
+                      placeholder="john.doe@example.com"
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Phone</label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      name="phone"
+                      value={newCustomer.phone}
+                      onChange={handleInputChange}
+                      placeholder="+250 7XX XXX XXX"
+                    />
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Segment</label>
+                    <select
+                      className="form-select"
+                      name="segment"
+                      value={newCustomer.segment}
+                      onChange={handleInputChange}
+                    >
+                      <option value="">Select segment</option>
+                      <option value="Retail">Retail</option>
+                      <option value="Corporate">Corporate</option>
+                      <option value="SME">SME</option>
+                      <option value="Premium">Premium</option>
+                    </select>
+                  </div>
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Branch</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="branch"
+                      value={newCustomer.branch}
+                      onChange={handleInputChange}
+                      placeholder="e.g., Kigali Main"
+                    />
+                  </div>
+                  <div className="col-md-4 mb-3">
+                    <label className="form-label">Product Type</label>
+                    <select
+                      className="form-select"
+                      name="product_type"
+                      value={newCustomer.product_type}
+                      onChange={handleInputChange}
+                    >
+                      <option value="">Select product</option>
+                      <option value="Savings">Savings</option>
+                      <option value="Current">Current</option>
+                      <option value="Fixed Deposit">Fixed Deposit</option>
+                      <option value="Loan">Loan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Account Balance (RWF)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="account_balance"
+                      value={newCustomer.account_balance}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Salary (RWF)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="salary"
+                      value={newCustomer.salary}
+                      onChange={handleInputChange}
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      name="digital_user"
+                      id="digital_user"
+                      checked={newCustomer.digital_user}
+                      onChange={handleInputChange}
+                    />
+                    <label className="form-check-label" htmlFor="digital_user">
+                      Digital User (Uses mobile/online banking)
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowAddModal(false)}
+                  disabled={addingCustomer}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleAddCustomer}
+                  disabled={addingCustomer}
+                >
+                  {addingCustomer ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <MdAdd className="me-2" />
+                      Add Customer
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

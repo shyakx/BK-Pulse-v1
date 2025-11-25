@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MdAdd, MdEdit, MdPause, MdPlayArrow, MdMoreVert, MdTrendingUp, MdAccountBalance, MdBarChart, MdLightbulb, MdPeople, MdCheckCircle, MdDelete, MdContentCopy } from 'react-icons/md';
+import { MdAdd, MdEdit, MdPause, MdPlayArrow, MdMoreVert, MdTrendingUp, MdAccountBalance, MdBarChart, MdLightbulb, MdPeople, MdCheckCircle, MdDelete } from 'react-icons/md';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';

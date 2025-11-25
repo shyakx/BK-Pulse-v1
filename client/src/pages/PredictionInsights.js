@@ -13,6 +13,18 @@ const PredictionInsights = () => {
   const [sortBy, setSortBy] = useState('churn_score');
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCustomSegmentModal, setShowCustomSegmentModal] = useState(false);
+  const [customSegmentCriteria, setCustomSegmentCriteria] = useState({
+    segment: '',
+    branch: '',
+    risk_level: '',
+    min_churn_score: '',
+    max_churn_score: '',
+    min_balance: '',
+    max_balance: '',
+    digital_user: '',
+    product_type: ''
+  });
   
   // Individual customer lookup
   const [customerIdInput, setCustomerIdInput] = useState('');
@@ -28,13 +40,34 @@ const PredictionInsights = () => {
       setPredictions([]);
       setShowCustomerList(false);
       
-      // Use smaller limit to avoid timeouts (batch predictions can take time)
-      const limit = segmentType === 'all' ? 100 : 50;
+      let predictionOptions = {};
+      
+      if (segmentType === 'custom') {
+        // Build custom segment filters
+        const filters = {};
+        if (customSegmentCriteria.segment) filters.segment = customSegmentCriteria.segment;
+        if (customSegmentCriteria.branch) filters.branch = customSegmentCriteria.branch;
+        if (customSegmentCriteria.risk_level) filters.risk_level = customSegmentCriteria.risk_level;
+        if (customSegmentCriteria.product_type) filters.product_type = customSegmentCriteria.product_type;
+        if (customSegmentCriteria.min_churn_score) filters.min_churn_score = parseFloat(customSegmentCriteria.min_churn_score);
+        if (customSegmentCriteria.max_churn_score) filters.max_churn_score = parseFloat(customSegmentCriteria.max_churn_score);
+        if (customSegmentCriteria.min_balance) filters.min_balance = parseFloat(customSegmentCriteria.min_balance);
+        if (customSegmentCriteria.max_balance) filters.max_balance = parseFloat(customSegmentCriteria.max_balance);
+        if (customSegmentCriteria.digital_user !== '') filters.digital_user = customSegmentCriteria.digital_user === 'true';
+        
+        predictionOptions = {
+          limit: 100,
+          filters: filters
+        };
+      } else {
+        // Use smaller limit to avoid timeouts (batch predictions can take time)
+        predictionOptions = {
+          limit: segmentType === 'all' ? 100 : 50
+        };
+      }
       
       // Call real API with longer timeout
-      const response = await api.batchPredict({ 
-        limit: limit 
-      });
+      const response = await api.batchPredict(predictionOptions);
       
       if (!response.success) {
         throw new Error(response.message || 'Failed to run predictions');
@@ -797,12 +830,27 @@ const PredictionInsights = () => {
                     id="custom"
                     value="custom"
                     checked={segmentType === 'custom'}
-                    onChange={(e) => setSegmentType(e.target.value)}
+                    onChange={(e) => {
+                      setSegmentType(e.target.value);
+                      if (e.target.value === 'custom') {
+                        setShowCustomSegmentModal(true);
+                      }
+                    }}
                   />
                   <label className="form-check-label" htmlFor="custom">
-                    Custom Segment (Coming Soon)
+                    Custom Segment
                   </label>
                 </div>
+                {segmentType === 'custom' && (
+                  <div className="mt-2">
+                    <button
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => setShowCustomSegmentModal(true)}
+                    >
+                      Configure Custom Segment
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1130,6 +1178,194 @@ const PredictionInsights = () => {
               <br />
               You can then export target lists for retention campaigns.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Segment Configuration Modal */}
+      {showCustomSegmentModal && (
+        <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Configure Custom Segment</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowCustomSegmentModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <p className="text-muted mb-4">Define criteria for your custom customer segment. Leave fields empty to include all values.</p>
+                
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Business Segment</label>
+                    <select
+                      className="form-select"
+                      name="segment"
+                      value={customSegmentCriteria.segment}
+                      onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, segment: e.target.value }))}
+                    >
+                      <option value="">All Segments</option>
+                      <option value="Retail">Retail</option>
+                      <option value="Corporate">Corporate</option>
+                      <option value="SME">SME</option>
+                      <option value="Premium">Premium</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Branch</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      name="branch"
+                      value={customSegmentCriteria.branch}
+                      onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, branch: e.target.value }))}
+                      placeholder="e.g., Kigali Main"
+                    />
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Risk Level</label>
+                    <select
+                      className="form-select"
+                      name="risk_level"
+                      value={customSegmentCriteria.risk_level}
+                      onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, risk_level: e.target.value }))}
+                    >
+                      <option value="">All Risk Levels</option>
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Product Type</label>
+                    <select
+                      className="form-select"
+                      name="product_type"
+                      value={customSegmentCriteria.product_type}
+                      onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, product_type: e.target.value }))}
+                    >
+                      <option value="">All Products</option>
+                      <option value="Savings">Savings</option>
+                      <option value="Current">Current</option>
+                      <option value="Fixed Deposit">Fixed Deposit</option>
+                      <option value="Loan">Loan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Min Churn Score (%)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="min_churn_score"
+                      value={customSegmentCriteria.min_churn_score}
+                      onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, min_churn_score: e.target.value }))}
+                      placeholder="0"
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Max Churn Score (%)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="max_churn_score"
+                      value={customSegmentCriteria.max_churn_score}
+                      onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, max_churn_score: e.target.value }))}
+                      placeholder="100"
+                      min="0"
+                      max="100"
+                    />
+                  </div>
+                </div>
+
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Min Balance (RWF)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="min_balance"
+                      value={customSegmentCriteria.min_balance}
+                      onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, min_balance: e.target.value }))}
+                      placeholder="0"
+                      min="0"
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Max Balance (RWF)</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      name="max_balance"
+                      value={customSegmentCriteria.max_balance}
+                      onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, max_balance: e.target.value }))}
+                      placeholder="No limit"
+                      min="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Digital User</label>
+                  <select
+                    className="form-select"
+                    name="digital_user"
+                    value={customSegmentCriteria.digital_user}
+                    onChange={(e) => setCustomSegmentCriteria(prev => ({ ...prev, digital_user: e.target.value }))}
+                  >
+                    <option value="">All Users</option>
+                    <option value="true">Digital Users Only</option>
+                    <option value="false">Non-Digital Users Only</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => {
+                    setCustomSegmentCriteria({
+                      segment: '',
+                      branch: '',
+                      risk_level: '',
+                      min_churn_score: '',
+                      max_churn_score: '',
+                      min_balance: '',
+                      max_balance: '',
+                      digital_user: '',
+                      product_type: ''
+                    });
+                    setShowCustomSegmentModal(false);
+                  }}
+                >
+                  Clear All
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowCustomSegmentModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowCustomSegmentModal(false)}
+                >
+                  Apply Filters
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

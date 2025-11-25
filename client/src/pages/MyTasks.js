@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MdAdd, MdCheckCircle, MdVisibility, MdEmail, MdDelete, MdDownload } from 'react-icons/md';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
@@ -8,6 +8,7 @@ import ChurnOverviewCard from '../components/Dashboard/ChurnOverviewCard';
 
 const MyTasks = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
@@ -20,18 +21,23 @@ const MyTasks = () => {
   const [assignedCustomersCount, setAssignedCustomersCount] = useState(0);
   const [assignedCustomersChange, setAssignedCustomersChange] = useState('+0 this week');
 
+  // Handle query parameters from URL
   useEffect(() => {
-    if (user) {
-      if (user.role === 'retentionOfficer') {
-        fetchAssignedCustomers();
-      } else {
-        fetchTasks();
+    const filterParam = searchParams.get('filter');
+    if (filterParam) {
+      // Map URL filter params to activeTab values
+      const filterMap = {
+        'due_today': 'due_today',
+        'due_this_week': 'due_this_week',
+        'overdue': 'overdue',
+        'high_priority': 'high',
+        'completed': 'completed'
+      };
+      if (filterMap[filterParam]) {
+        setActiveTab(filterMap[filterParam]);
       }
-      fetchAssignedCustomersCount();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // Note: Functions are stable, only refetch when activeTab or user changes
-  }, [activeTab, user]);
+  }, [searchParams]);
 
   const fetchAssignedCustomersCount = async () => {
     try {
@@ -143,7 +149,7 @@ const MyTasks = () => {
     }
   };
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
       // For non-officer roles, fetch tasks as before
@@ -197,7 +203,20 @@ const MyTasks = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'retentionOfficer') {
+        fetchAssignedCustomers();
+      } else {
+        fetchTasks();
+      }
+      fetchAssignedCustomersCount();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Note: Functions are stable, only refetch when activeTab or user changes
+  }, [activeTab, user, fetchTasks]);
 
   const handleCreateTask = async (customer) => {
     if (!window.confirm(`Create task for ${customer.name}?`)) {
@@ -385,24 +404,52 @@ const MyTasks = () => {
     return 'low';
   };
 
+  // Helper function to check if task is due today
+  const isDueToday = (dueDate) => {
+    if (!dueDate) return false;
+    const today = new Date();
+    const due = new Date(dueDate);
+    return due.toDateString() === today.toDateString();
+  };
+
+  // Helper function to check if task is due this week
+  const isDueThisWeek = (dueDate) => {
+    if (!dueDate) return false;
+    const today = new Date();
+    const due = new Date(dueDate);
+    const weekFromNow = new Date(today);
+    weekFromNow.setDate(today.getDate() + 7);
+    return due >= today && due <= weekFromNow && !isDueToday(dueDate);
+  };
+
   const filteredCustomers = user?.role === 'retentionOfficer' 
     ? customers.filter(customer => {
-        // For retention officers, filter assigned customers by churn score/priority and task status
+        // For retention officers, filter assigned customers by task categories
         if (activeTab === 'all') return true; // Show all assigned customers (with or without tasks)
-        if (activeTab === 'high') {
-          const score = parseFloat(customer.churn_score || 0) || 0;
-          return score >= 70;
+        if (activeTab === 'due_today') {
+          // Show customers with tasks due today
+          if (!customer.hasTask || !customer.task?.due_date) return false;
+          return customer.task.status !== 'completed' && isDueToday(customer.task.due_date);
+        }
+        if (activeTab === 'due_this_week') {
+          // Show customers with tasks due this week (but not today)
+          if (!customer.hasTask || !customer.task?.due_date) return false;
+          return customer.task.status !== 'completed' && isDueThisWeek(customer.task.due_date);
         }
         if (activeTab === 'overdue') {
           // Show customers with tasks that are overdue
           if (!customer.hasTask || !customer.task?.due_date) return false;
           const now = new Date();
           const dueDate = new Date(customer.task.due_date);
-          return customer.task.status !== 'completed' && dueDate < now;
+          return customer.task.status !== 'completed' && dueDate < now && !isDueToday(customer.task.due_date);
         }
         if (activeTab === 'completed') {
           // Show customers with completed tasks
           return customer.hasTask && customer.task?.status === 'completed';
+        }
+        if (activeTab === 'high') {
+          const score = parseFloat(customer.churn_score || 0) || 0;
+          return score >= 70;
         }
         return true;
       })
@@ -566,10 +613,18 @@ const MyTasks = () => {
         </li>
         <li className="nav-item">
           <button
-            className={`nav-link ${activeTab === 'high' ? 'active' : ''}`}
-            onClick={() => setActiveTab('high')}
+            className={`nav-link ${activeTab === 'due_today' ? 'active' : ''}`}
+            onClick={() => setActiveTab('due_today')}
           >
-            High Priority
+            Due Today
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            className={`nav-link ${activeTab === 'due_this_week' ? 'active' : ''}`}
+            onClick={() => setActiveTab('due_this_week')}
+          >
+            Due This Week
           </button>
         </li>
         <li className="nav-item">
@@ -578,6 +633,14 @@ const MyTasks = () => {
             onClick={() => setActiveTab('overdue')}
           >
             Overdue
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            className={`nav-link ${activeTab === 'high' ? 'active' : ''}`}
+            onClick={() => setActiveTab('high')}
+          >
+            High Priority
           </button>
         </li>
         <li className="nav-item">

@@ -26,13 +26,18 @@ ChartJS.register(
 );
 
 const AlertsChart = ({ type = 'bar', data, title }) => {
-  // Use real data if provided, otherwise use placeholder
-  const barData = data?.riskTrend ? {
-    labels: data.riskTrend.labels.length > 0 ? data.riskTrend.labels : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  // Check for risk trend data (for analyst dashboard)
+  const hasRiskTrendData = data?.riskTrend && data.riskTrend.labels && data.riskTrend.labels.length > 0;
+  // Check for engagement trend data (for officer dashboard)
+  const hasEngagementData = data?.engagementTrend && data.engagementTrend.labels && data.engagementTrend.labels.length > 0;
+  
+  // Use risk trend data if available (for analyst dashboard)
+  const barData = hasRiskTrendData ? {
+    labels: data.riskTrend.labels,
     datasets: [
       {
-        label: 'High Risk Customers',
-        data: data.riskTrend.datasets.highRisk.length > 0 ? data.riskTrend.datasets.highRisk : [12, 19, 3, 5, 2, 3],
+        label: 'High Risk',
+        data: data.riskTrend.datasets.highRisk || [],
         backgroundColor: '#ef4444',
         borderColor: '#dc2626',
         borderWidth: 1,
@@ -40,8 +45,8 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
         borderSkipped: false
       },
       {
-        label: 'Medium Risk Customers',
-        data: data.riskTrend.datasets.mediumRisk.length > 0 ? data.riskTrend.datasets.mediumRisk : [8, 15, 7, 12, 9, 11],
+        label: 'Medium Risk',
+        data: data.riskTrend.datasets.mediumRisk || [],
         backgroundColor: '#f59e0b',
         borderColor: '#d97706',
         borderWidth: 1,
@@ -49,8 +54,8 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
         borderSkipped: false
       },
       {
-        label: 'Low Risk Customers',
-        data: data.riskTrend.datasets.lowRisk.length > 0 ? data.riskTrend.datasets.lowRisk : [20, 25, 15, 18, 22, 19],
+        label: 'Low Risk',
+        data: data.riskTrend.datasets.lowRisk || [],
         backgroundColor: '#10b981',
         borderColor: '#059669',
         borderWidth: 1,
@@ -58,30 +63,78 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
         borderSkipped: false
       }
     ]
-  } : {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+  } : hasEngagementData ? {
+    labels: data.engagementTrend.labels,
     datasets: [
       {
-        label: 'High Risk Alerts',
-        data: [12, 19, 3, 5, 2, 3],
+        label: 'Monthly Transactions',
+        data: data.engagementTrend.datasets.monthlyTransactions || [],
+        backgroundColor: '#3b82f6',
+        borderColor: '#2563eb',
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false
+      },
+      {
+        label: 'Monthly Inflows',
+        data: data.engagementTrend.datasets.monthlyInflows || [],
+        backgroundColor: '#10b981',
+        borderColor: '#059669',
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false
+      },
+      {
+        label: 'Monthly Outflows',
+        data: data.engagementTrend.datasets.monthlyOutflows || [],
+        backgroundColor: '#ef4444',
+        borderColor: '#dc2626',
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false
+      },
+      {
+        label: 'Digital Banking Activity',
+        data: data.engagementTrend.datasets.digitalBankingActivity || [],
+        backgroundColor: '#f59e0b',
+        borderColor: '#d97706',
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false
+      }
+    ]
+  } : {
+    labels: ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'],
+    datasets: [
+      {
+        label: 'Monthly Transactions',
+        data: [45, 42, 38, 35, 32, 30],
+        backgroundColor: '#3b82f6',
+        borderColor: '#2563eb',
+        borderWidth: 1,
+        borderRadius: 4
+      },
+      {
+        label: 'Monthly Inflows',
+        data: [12000, 11500, 11000, 10500, 10000, 9500],
+        backgroundColor: '#10b981',
+        borderColor: '#059669',
+        borderWidth: 1,
+        borderRadius: 4
+      },
+      {
+        label: 'Monthly Outflows',
+        data: [8000, 7500, 7000, 6500, 6000, 5500],
         backgroundColor: '#ef4444',
         borderColor: '#dc2626',
         borderWidth: 1,
         borderRadius: 4
       },
       {
-        label: 'Medium Risk Alerts',
-        data: [8, 15, 7, 12, 9, 11],
+        label: 'Digital Banking Activity',
+        data: [35, 33, 30, 28, 25, 22],
         backgroundColor: '#f59e0b',
         borderColor: '#d97706',
-        borderWidth: 1,
-        borderRadius: 4
-      },
-      {
-        label: 'Low Risk Alerts',
-        data: [20, 25, 15, 18, 22, 19],
-        backgroundColor: '#10b981',
-        borderColor: '#059669',
         borderWidth: 1,
         borderRadius: 4
       }
@@ -126,11 +179,19 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
     ]
   };
 
-  // Calculate max value for better Y-axis scaling (after barData is defined)
+  // Calculate max value for better Y-axis scaling
   const allValues = barData.datasets.flatMap(d => d.data);
   const maxValue = Math.max(...allValues.filter(v => v !== undefined && v !== null), 1);
   const suggestedMax = maxValue > 0 ? Math.ceil(maxValue * 1.2) : 10;
   const stepSize = suggestedMax <= 10 ? 1 : Math.max(1, Math.ceil(suggestedMax / 10));
+
+  // Format values based on dataset type
+  const formatValue = (value, datasetLabel) => {
+    if (datasetLabel?.includes('Inflow') || datasetLabel?.includes('Outflow')) {
+      return `RWF ${(value || 0).toLocaleString()}`;
+    }
+    return (value || 0).toLocaleString();
+  };
 
   const options = {
     responsive: true,
@@ -169,7 +230,7 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
             const value = context.parsed.y !== null && context.parsed.y !== undefined 
               ? context.parsed.y 
               : 0;
-            label += (value || 0).toLocaleString() + ' customers';
+            label += formatValue(value, context.dataset.label);
             return label;
           }
         }
@@ -178,7 +239,7 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
         display: false
       }
     },
-    scales: type === 'bar' ? {
+    scales: {
       y: {
         beginAtZero: true,
         suggestedMax: suggestedMax,
@@ -187,6 +248,13 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
           precision: 0,
           font: {
             size: 11
+          },
+          callback: function(value) {
+            // Format large numbers (for inflows/outflows)
+            if (value >= 1000) {
+              return (value / 1000).toFixed(1) + 'K';
+            }
+            return value;
           }
         },
         grid: {
@@ -195,7 +263,7 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
         },
         title: {
           display: true,
-          text: 'Number of Customers',
+          text: hasRiskTrendData ? 'Number of Customers' : 'Engagement Metrics',
           font: {
             size: 12,
             weight: 'normal'
@@ -213,17 +281,17 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
           }
         }
       }
-    } : {}
+    }
   };
 
   // Check if we have meaningful data
-  const hasData = data?.riskTrend && data.riskTrend.labels.length > 0;
+  const hasData = (hasRiskTrendData || hasEngagementData) && barData.labels.length > 0;
   const dataPointCount = barData.labels.length;
 
   return (
     <div className="bk-card">
       <div className="bk-card-header d-flex justify-content-between align-items-center">
-        <h5 className="fw-bold mb-0">{title || 'Alerts Overview'}</h5>
+        <h5 className="fw-bold mb-0">{title || 'Customer 6-Month Engagement Trend'}</h5>
         {hasData && (
           <small className="text-muted">
             Last 6 months
@@ -234,18 +302,18 @@ const AlertsChart = ({ type = 'bar', data, title }) => {
         {!hasData || dataPointCount < 2 ? (
           <div className="text-center py-5">
             <p className="text-muted mb-2">
-              {!hasData ? 'No trend data available yet' : 'Insufficient data for trend analysis'}
+              {!hasData ? (hasRiskTrendData ? 'No risk trend data available yet' : 'No engagement data available yet') : 'Insufficient data for trend analysis'}
             </p>
             <small className="text-muted">
-              Update customer predictions to see risk trends over time
+              {hasRiskTrendData ? 'Risk trend metrics will appear as customer data is updated' : 'Engagement metrics will appear as customer data is updated'}
             </small>
           </div>
         ) : (
           <div className="chart-container" style={{ height: '320px', position: 'relative' }}>
-            {type === 'bar' ? (
-              <Bar data={barData} options={options} />
-            ) : (
+            {type === 'doughnut' ? (
               <Doughnut data={doughnutData} options={options} />
+            ) : (
+              <Bar data={barData} options={options} />
             )}
           </div>
         )}
