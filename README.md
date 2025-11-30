@@ -394,7 +394,9 @@ code .env  # If you have VS Code
 
 #### Configure .env File
 
-Edit the `.env` file with your actual values:
+⚠️ **SECURITY WARNING**: Never commit your `.env` file to Git. It contains sensitive credentials and is already in `.gitignore`.
+
+Create and edit the `.env` file with your actual values:
 
 ```env
 # Database Configuration
@@ -403,16 +405,16 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=bk_pulse
 DB_USER=postgres
-DB_PASSWORD=postgres123
+DB_PASSWORD=YOUR_POSTGRES_PASSWORD_HERE
 
 # OR use DATABASE_URL (for cloud hosting)
-# DATABASE_URL=postgresql://postgres:postgres123@localhost:5432/bk_pulse
+# DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@localhost:5432/bk_pulse
 
 # JWT Configuration
-# Generate a random 32+ character string for production
-# You can use: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# Example generated secret: 73396c6d82d138ba49c242a2fc32418af51000f2dd703735121cfd0cb7ef2b10
-JWT_SECRET=73396c6d82d138ba49c242a2fc32418af51000f2dd703735121cfd0cb7ef2b10
+# ⚠️ CRITICAL: Generate a unique, random 32+ character string for production
+# DO NOT use the example below - generate your own!
+# Generate command: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+JWT_SECRET=GENERATE_YOUR_OWN_RANDOM_32_CHARACTER_STRING_HERE
 JWT_EXPIRE=7d
 
 # Server Configuration
@@ -424,16 +426,19 @@ NODE_ENV=development
 CORS_ORIGIN=http://localhost:3000
 ```
 
-**Important Notes:**
-- Replace `postgres123` with your actual PostgreSQL password (the example uses a common default)
-- For `JWT_SECRET`, the example shows a generated secret. Generate your own:
+**Security Best Practices:**
+- ✅ **DO**: Use strong, unique passwords for database
+- ✅ **DO**: Generate a unique JWT secret for each environment:
   ```bash
   # Generate JWT secret
   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   ```
-- The `.env` file should be in `server/` directory, NOT in the root
-- Never commit `.env` to Git (it's in `.gitignore`)
-- These are example values - replace with your actual credentials
+- ✅ **DO**: Keep `.env` file in `server/` directory (NOT in root)
+- ✅ **DO**: Verify `.env` is in `.gitignore` (it should be)
+- ❌ **DON'T**: Commit `.env` files to version control
+- ❌ **DON'T**: Share `.env` files in chat/email
+- ❌ **DON'T**: Use the same credentials for development and production
+- ❌ **DON'T**: Use weak passwords or default values in production
 
 **Verify .env File:**
 ```bash
@@ -816,11 +821,11 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=bk_pulse
 DB_USER=postgres
-DB_PASSWORD=postgres123
+DB_PASSWORD=YOUR_POSTGRES_PASSWORD_HERE
 
-# JWT Configuration (generate a random string for production)
-# Example: Use node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-JWT_SECRET=73396c6d82d138ba49c242a2fc32418af51000f2dd703735121cfd0cb7ef2b10
+# JWT Configuration
+# ⚠️ Generate your own random string: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+JWT_SECRET=GENERATE_YOUR_OWN_RANDOM_32_CHARACTER_STRING_HERE
 JWT_EXPIRE=7d
 
 # Server Configuration
@@ -832,9 +837,10 @@ CORS_ORIGIN=http://localhost:3000
 ```
 
 **Important**: 
-- Replace `postgres123` with your actual PostgreSQL password (this is just an example)
-- For production, generate a new random string for `JWT_SECRET` using the command shown above
+- ⚠️ Replace `YOUR_POSTGRES_PASSWORD_HERE` with your actual PostgreSQL password
+- ⚠️ Generate a unique JWT secret - DO NOT use placeholder values
 - If your PostgreSQL is on a different port, update `DB_PORT`
+- Never commit this file - it's in `.gitignore` for security
 
 #### Step 5: Set Up Python ML Environment (Optional but Recommended)
 
@@ -1809,36 +1815,42 @@ Ensure all production environment variables are properly configured:
 **Backend (.env or platform environment variables):**
 ```env
 # Database (use DATABASE_URL for cloud)
-DATABASE_URL=postgresql://bk_pulse_user:SecurePass123@dpg-xxxxx-a.oregon-postgres.render.com:5432/bk_pulse_xxxx?sslmode=require
+# ⚠️ Replace with your actual database connection string from hosting provider
+DATABASE_URL=postgresql://YOUR_DB_USER:YOUR_DB_PASSWORD@YOUR_DB_HOST:5432/YOUR_DB_NAME?sslmode=require
 # OR individual variables:
-DB_HOST=dpg-xxxxx-a.oregon-postgres.render.com
+DB_HOST=YOUR_DATABASE_HOST_HERE
 DB_PORT=5432
-DB_NAME=bk_pulse_xxxx
-DB_USER=bk_pulse_user
-DB_PASSWORD=SecurePass123
+DB_NAME=YOUR_DATABASE_NAME_HERE
+DB_USER=YOUR_DATABASE_USER_HERE
+DB_PASSWORD=YOUR_DATABASE_PASSWORD_HERE
 DB_SSL=true
 
-# JWT (generate strong random string - example shown)
-JWT_SECRET=73396c6d82d138ba49c242a2fc32418af51000f2dd703735121cfd0cb7ef2b10
+# JWT (⚠️ CRITICAL: Generate your own unique secret for production)
+# Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+JWT_SECRET=GENERATE_YOUR_OWN_UNIQUE_RANDOM_STRING_HERE
 JWT_EXPIRE=7d
 
 # Server
 PORT=10000  # Or platform default
 NODE_ENV=production
 
-# CORS (comma-separated for multiple origins)
-CORS_ORIGIN=https://bk-pulse-v2.vercel.app,https://www.bankofkigali.rw
+# CORS (comma-separated for multiple origins - replace with your actual URLs)
+CORS_ORIGIN=https://your-frontend-domain.com,https://your-other-domain.com
 ```
 
 **Frontend (Vercel environment variables):**
 ```env
-REACT_APP_API_URL=https://bk-pulse-api.onrender.com/api
+REACT_APP_API_URL=https://your-backend-api-url.com/api
 ```
 
-**Note:** Replace the example values above with your actual:
-- Database connection details from your hosting provider
-- Generated JWT secret (use: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
-- Your actual frontend and backend URLs
+**⚠️ Security Checklist for Production:**
+- [ ] All placeholders replaced with actual values
+- [ ] JWT secret is unique and randomly generated (32+ characters)
+- [ ] Database password is strong and unique
+- [ ] CORS_ORIGIN only includes your actual frontend domains
+- [ ] `.env` file is NOT committed to Git
+- [ ] Environment variables are set securely on hosting platform
+- [ ] Different credentials used for development vs production
 
 ### Deployment Checklist
 
