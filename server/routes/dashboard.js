@@ -22,9 +22,6 @@ router.get('/overview', authenticateToken, async (req, res) => {
       case 'retentionManager':
         overviewData = await getRetentionManagerData();
         break;
-      case 'admin':
-        overviewData = await getAdminData();
-        break;
       default:
         return res.status(403).json({ message: 'Invalid role' });
     }
@@ -100,17 +97,19 @@ async function getRetentionOfficerData(userId) {
     // Use latest customer record to ensure accurate risk_level (customers table can have multiple records per customer_id)
     // Count by customer_id (string) to ensure we count each unique customer once, regardless of database id
     // Calculate risk_level from churn_score if risk_level is NULL or incorrect
+    // NOTE: Assigned customers without churn_score are treated as high risk (they're assigned for a reason)
     pool.query(
       `SELECT 
-        COUNT(DISTINCT CASE WHEN calculated_risk = 'high' THEN customer_id END) as high_risk,
+        COUNT(DISTINCT CASE WHEN calculated_risk = 'high' OR calculated_risk = 'unassigned_high' THEN customer_id END) as high_risk,
         COUNT(DISTINCT CASE WHEN calculated_risk = 'medium' THEN customer_id END) as medium_risk,
         COUNT(DISTINCT CASE WHEN calculated_risk = 'low' THEN customer_id END) as low_risk
        FROM (
          SELECT DISTINCT 
            combined.customer_id,
            -- Always calculate risk from churn_score to ensure accurate distribution
-           -- This ensures we see the actual risk based on scores, not stored risk_level
+           -- If churn_score is NULL, treat as high risk (assigned customers are typically high risk)
            CASE 
+             WHEN combined.churn_score IS NULL THEN 'unassigned_high'
              WHEN combined.churn_score >= 70 THEN 'high'
              WHEN combined.churn_score >= 40 THEN 'medium'
              ELSE 'low'
@@ -143,7 +142,6 @@ async function getRetentionOfficerData(userId) {
            WHERE a.officer_id = $1
              AND a.customer_id IS NOT NULL
          ) combined
-         WHERE combined.churn_score IS NOT NULL
        ) risk_calculated`,
       [userId]
     ).catch((err) => { 
@@ -180,9 +178,10 @@ async function getRetentionOfficerData(userId) {
   if (assignedCustomers > 0) {
     const diagnosticQuery = await pool.query(`
       SELECT 
-        COUNT(DISTINCT CASE WHEN combined.churn_score >= 70 THEN combined.customer_id END) as high_count,
+        COUNT(DISTINCT CASE WHEN combined.churn_score IS NULL OR combined.churn_score >= 70 THEN combined.customer_id END) as high_count,
         COUNT(DISTINCT CASE WHEN combined.churn_score >= 40 AND combined.churn_score < 70 THEN combined.customer_id END) as medium_count,
-        COUNT(DISTINCT CASE WHEN combined.churn_score < 40 THEN combined.customer_id END) as low_count,
+        COUNT(DISTINCT CASE WHEN combined.churn_score < 40 AND combined.churn_score IS NOT NULL THEN combined.customer_id END) as low_count,
+        COUNT(DISTINCT CASE WHEN combined.churn_score IS NULL THEN combined.customer_id END) as null_score_count,
         MIN(combined.churn_score) as min_score,
         MAX(combined.churn_score) as max_score,
         AVG(combined.churn_score) as avg_score
@@ -214,7 +213,6 @@ async function getRetentionOfficerData(userId) {
         WHERE a.officer_id = $1
           AND a.customer_id IS NOT NULL
       ) combined
-      WHERE combined.churn_score IS NOT NULL
     `, [userId]).catch(() => ({ rows: [{}] }));
     
     const diag = diagnosticQuery.rows[0];
@@ -228,6 +226,7 @@ async function getRetentionOfficerData(userId) {
         highByScore: parseInt(diag.high_count || 0),
         mediumByScore: parseInt(diag.medium_count || 0),
         lowByScore: parseInt(diag.low_count || 0),
+        nullScoreCount: parseInt(diag.null_score_count || 0),
         minScore: parseFloat(diag.min_score || 0),
         maxScore: parseFloat(diag.max_score || 0),
         avgScore: parseFloat(diag.avg_score || 0)
@@ -235,24 +234,19 @@ async function getRetentionOfficerData(userId) {
     });
   }
 
-  // Validation: Ensure risk counts don't exceed assigned customers
-  // This can happen if there are data inconsistencies or if risk_level changes
   const totalRiskCount = highRiskCases + mediumRisk + lowRisk;
   
-  // If all customers are high risk, create a representative distribution for visualization
-  // This helps show a more balanced portfolio view (60% high, 20% medium, 20% low)
+  // Use actual risk counts - don't artificially redistribute for visualization
+  // If all assigned customers are high risk, show them as high risk (accurate representation)
   let validatedHighRisk = Math.min(highRiskCases, assignedCustomers);
   let validatedMediumRisk = Math.min(mediumRisk, assignedCustomers);
   let validatedLowRisk = Math.min(lowRisk, assignedCustomers);
   
-  // If all customers are high risk (common for assigned customers), create a mixed distribution
-  // for better visualization and understanding of portfolio composition
-  if (assignedCustomers > 0 && highRiskCases === assignedCustomers && mediumRisk === 0 && lowRisk === 0) {
-    // Distribute as: 60% high, 20% medium, 20% low for visualization
-    validatedHighRisk = Math.round(assignedCustomers * 0.6);
-    validatedMediumRisk = Math.round(assignedCustomers * 0.2);
-    validatedLowRisk = assignedCustomers - validatedHighRisk - validatedMediumRisk; // Remainder to ensure total matches
-    console.log(`[Dashboard] Creating representative distribution for visualization: ${validatedHighRisk} high, ${validatedMediumRisk} medium, ${validatedLowRisk} low`);
+
+  const customersWithoutScore = assignedCustomers - totalRiskCount;
+  if (customersWithoutScore > 0) {
+    console.log(`[Dashboard] Warning: ${customersWithoutScore} assigned customers have no churn_score`);
+    // For now, don't add them to any category - they need to be processed first
   }
 
   // If total risk count exceeds assigned customers, it might indicate duplicate assignments
@@ -261,16 +255,10 @@ async function getRetentionOfficerData(userId) {
     console.warn(`Warning: Risk distribution (${totalRiskCount}) exceeds assigned customers (${assignedCustomers}) for officer ${userId}`);
   }
 
-  // Calculate retention rate based on customer risk levels
-  // Retention rate = (Low Risk Customers / Total Assigned Customers) * 100
-  // This represents how many customers are being successfully retained (low risk)
   const retentionRate = assignedCustomers > 0 
     ? Math.round((validatedLowRisk / assignedCustomers) * 100) 
     : 0;
 
-  // Get Customer 6-Month Engagement Trend
-  // Show: Monthly transactions, Monthly inflows vs outflows, Digital banking activity
-  // Purpose: Detect drop-offs—key churn signal
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   sixMonthsAgo.setDate(1); // Start of month 6 months ago
@@ -914,161 +902,6 @@ async function getRetentionManagerData() {
   };
 }
 
-async function getAdminData() {
-  // Execute all queries in parallel for better performance
-  const [
-    customersResult,
-    highRiskResult,
-    dataQualityResult,
-    userActivityResult,
-    activeUsersResult
-  ] = await Promise.all([
-    pool.query('SELECT COUNT(*) as count FROM customers').catch(() => ({ rows: [{ count: 0 }] })),
-    pool.query(
-      'SELECT COUNT(*) as count FROM customers WHERE risk_level = $1',
-      ['high']
-    ).catch(() => ({ rows: [{ count: 0 }] })),
-    pool.query(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(CASE WHEN churn_score IS NOT NULL THEN 1 END) as with_scores,
-        COUNT(CASE WHEN account_balance IS NOT NULL THEN 1 END) as with_balance
-      FROM customers
-    `).catch(() => ({ rows: [{ total: 0, with_scores: 0, with_balance: 0 }] })),
-    pool.query(`
-      SELECT role, COUNT(*) as active
-      FROM users
-      WHERE is_active = true
-      GROUP BY role
-    `).catch(() => ({ rows: [] })),
-    pool.query(
-      'SELECT COUNT(*) as count FROM users WHERE is_active = true'
-    ).catch(() => ({ rows: [{ count: 0 }] }))
-  ]);
-
-  const assignedCustomers = parseInt(customersResult.rows[0]?.count || 0);
-  const highRiskCases = parseInt(highRiskResult.rows[0]?.count || 0);
-  const total = parseInt(dataQualityResult.rows[0]?.total || 0);
-  const withScores = parseInt(dataQualityResult.rows[0]?.with_scores || 0);
-  const withBalance = parseInt(dataQualityResult.rows[0]?.with_balance || 0);
-  
-  const dataQuality = total > 0 
-    ? Math.round(((withScores + withBalance) / (total * 2)) * 100 * 10) / 10
-    : 0;
-
-  const systemHealth = Math.min(dataQuality + 1, 99.9);
-  const activeUsers = parseInt(activeUsersResult.rows[0]?.count || 0);
-  const userActivity = userActivityResult.rows.map(row => ({
-    role: row.role,
-    active: parseInt(row.active || 0)
-  }));
-
-  // Get risk trend data for ALL customers (last 6 months) - optimized
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-  
-  const [riskTrendResult, currentMonthData] = await Promise.all([
-    pool.query(`
-      SELECT 
-        DATE_TRUNC('month', COALESCE(updated_at, created_at)) as month,
-        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
-      FROM customers
-      WHERE COALESCE(updated_at, created_at) >= $1
-        AND risk_level IS NOT NULL
-      GROUP BY DATE_TRUNC('month', COALESCE(updated_at, created_at))
-      ORDER BY month ASC
-    `, [sixMonthsAgo]).catch(() => ({ rows: [] })),
-    pool.query(`
-      SELECT 
-        COUNT(CASE WHEN risk_level = 'high' THEN 1 END) as high_risk,
-        COUNT(CASE WHEN risk_level = 'medium' THEN 1 END) as medium_risk,
-        COUNT(CASE WHEN risk_level = 'low' THEN 1 END) as low_risk
-      FROM customers
-      WHERE risk_level IS NOT NULL
-    `).catch(() => ({ rows: [{ high_risk: 0, medium_risk: 0, low_risk: 0 }] }))
-  ]);
-
-  // Generate labels for last 6 months
-  const months = [];
-  const monthDataMap = {};
-  const today = new Date();
-  
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    const monthKey = date.toISOString().slice(0, 7);
-    const label = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    months.push({ key: monthKey, label });
-    monthDataMap[monthKey] = { high: 0, medium: 0, low: 0 };
-  }
-
-  // Fill in data from query results
-  riskTrendResult.rows.forEach(row => {
-    const monthKey = row.month.toISOString().slice(0, 7);
-    if (monthDataMap[monthKey]) {
-      monthDataMap[monthKey] = {
-        high: parseInt(row.high_risk || 0),
-        medium: parseInt(row.medium_risk || 0),
-        low: parseInt(row.low_risk || 0)
-      };
-    }
-  });
-
-  const currentHigh = parseInt(currentMonthData.rows[0]?.high_risk || 0);
-  const currentMedium = parseInt(currentMonthData.rows[0]?.medium_risk || 0);
-  const currentLow = parseInt(currentMonthData.rows[0]?.low_risk || 0);
-
-  // Build risk trend data
-  const riskTrend = {
-    labels: months.map(m => m.label),
-    datasets: {
-      highRisk: months.map(m => monthDataMap[m.key]?.high || 0),
-      mediumRisk: months.map(m => monthDataMap[m.key]?.medium || 0),
-      lowRisk: months.map(m => monthDataMap[m.key]?.low || 0)
-    }
-  };
-
-  // Get alerts data (risk distribution)
-  const alerts = [
-    { label: 'High Risk', value: currentHigh, color: '#ef4444' },
-    { label: 'Medium Risk', value: currentMedium, color: '#f59e0b' },
-    { label: 'Low Risk', value: currentLow, color: '#10b981' }
-  ];
-
-  // ETL jobs count (would be retrieved from job scheduler in production)
-  const etlJobs = 12;
-
-  // Get system performance metrics
-  const systemPerformance = {
-    uptime: process.uptime(),
-    memoryUsage: process.memoryUsage(),
-    timestamp: new Date().toISOString()
-  };
-
-  return {
-    success: true,
-    // Customer stats (ALL customers)
-    assignedCustomers,
-    assignedCustomersChange: '+0 this week',
-    highRiskCases,
-    highRiskChange: 'No change',
-    // Risk trend data
-    riskTrend,
-    alerts,
-    // System metrics
-    systemHealth: parseFloat(systemHealth.toFixed(1)),
-    systemHealthChange: '+0% this week',
-    activeUsers,
-    activeUsersChange: '+0 this week',
-    etlJobs,
-    etlJobsStatus: 'All running',
-    dataQuality: parseFloat(dataQuality.toFixed(1)),
-    dataQualityChange: '+0% this month',
-    userActivity,
-    systemPerformance
-  };
-}
 
 module.exports = router;
 

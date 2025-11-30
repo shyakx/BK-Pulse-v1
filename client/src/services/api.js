@@ -1,6 +1,34 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// In development, use relative URLs to leverage the proxy in package.json
+// In production, use the full URL from environment variable or default
+const getApiBaseUrl = () => {
+  if (process.env.REACT_APP_API_URL) {
+    // If environment variable is set, use it (but validate it has protocol)
+    const url = process.env.REACT_APP_API_URL;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    // If it doesn't have protocol, assume it's a relative path or add http://
+    if (url.startsWith('/')) {
+      return url;
+    }
+    return `http://${url}`;
+  }
+  // In development, use relative URL to leverage proxy
+  if (process.env.NODE_ENV === 'development') {
+    return '/api';
+  }
+  // In production, default to localhost (should be overridden by env var)
+  return 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Log API base URL in development for debugging
+if (process.env.NODE_ENV === 'development') {
+  console.log('API Base URL:', API_BASE_URL);
+}
 
 // Create axios instance with timeout
 const apiClient = axios.create({
@@ -265,18 +293,6 @@ export const api = {
     return apiClient.get('/model/performance');
   },
 
-  // Admin
-  getMaintenanceInfo: () => {
-    return apiClient.get('/admin/maintenance');
-  },
-
-  createBackup: () => {
-    return apiClient.post('/admin/backup');
-  },
-
-  optimizeDatabase: () => {
-    return apiClient.post('/admin/optimize');
-  },
 
   // Team
   getTeam: () => {
@@ -309,46 +325,6 @@ export const api = {
     return apiClient.get('/reports/customer', { params });
   },
 
-  // Admin
-  getAdminDashboard: () => {
-    return apiClient.get('/admin/dashboard');
-  },
-
-  getAdminUsers: () => {
-    return apiClient.get('/admin/users');
-  },
-
-  createAdminUser: (userData) => {
-    return apiClient.post('/admin/users', userData);
-  },
-
-  updateAdminUser: (id, userData) => {
-    return apiClient.patch(`/admin/users/${id}`, userData);
-  },
-
-  getAdminModels: () => {
-    return apiClient.get('/admin/models');
-  },
-
-  getAdminAudit: (params = {}) => {
-    return apiClient.get('/admin/audit', { params });
-  },
-
-  getAdminSettings: () => {
-    return apiClient.get('/admin/settings');
-  },
-
-  updateAdminSetting: (key, data) => {
-    return apiClient.patch(`/admin/settings/${key}`, data);
-  },
-
-  getAdminData: () => {
-    return apiClient.get('/admin/data');
-  },
-
-  generateCustomers: (count) => {
-    return apiClient.post('/admin/customers/generate', { count });
-  },
 
   // Incentive Analytics
   getIncentiveAnalytics: (params = {}) => {

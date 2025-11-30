@@ -14,20 +14,28 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // CORS Configuration - Support multiple origins (comma-separated) or single origin
 const corsOptions = {
   origin: function (origin, callback) {
+    // In development, allow all origins for easier testing
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    // In production, use strict origin checking
     const allowedOrigins = process.env.CORS_ORIGIN 
       ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-      : ['http://localhost:3000'];
+      : ['http://localhost:3000', 'http://127.0.0.1:3000'];
     
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (same-origin requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`CORS: Origin "${origin}" not in allowed list:`, allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
 app.use(cors(corsOptions));
@@ -46,11 +54,11 @@ app.use('/api/performance', require('./routes/performance'));
 app.use('/api/campaigns', require('./routes/campaigns'));
 app.use('/api/segmentation', require('./routes/segmentation'));
 app.use('/api/analytics', require('./routes/analytics'));
-app.use('/api/admin', require('./routes/admin'));
 app.use('/api/team', require('./routes/team'));
 app.use('/api/recommendations', require('./routes/recommendations'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/model-validation', require('./routes/modelValidation'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

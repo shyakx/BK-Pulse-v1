@@ -144,7 +144,7 @@ router.get('/my-assigned', authenticateToken, requireRole(['retentionOfficer']),
 // @route   POST /api/assignments/assign
 // @desc    Manually assign customers to officers (Admin/Manager only)
 // @access  Private (Admin, Manager)
-router.post('/assign', authenticateToken, requireRole(['admin', 'retentionManager']), async (req, res) => {
+router.post('/assign', authenticateToken, requireRole(['retentionManager']), async (req, res) => {
   try {
     const { customer_ids, officer_id } = req.body;
 
@@ -238,7 +238,7 @@ router.post('/assign', authenticateToken, requireRole(['admin', 'retentionManage
 // @desc    Assigns customers with status: Dormant, Inactive, or Active (priority: Dormant → Inactive → Active)
 // @desc    Automatically creates tasks in "My Tasks" page for all assigned customers
 // @access  Private (Admin only, or can be called by cron)
-router.post('/auto-assign', authenticateToken, requireRole(['admin']), async (req, res) => {
+router.post('/auto-assign', authenticateToken, requireRole(['retentionManager']), async (req, res) => {
   try {
     const CUSTOMERS_PER_OFFICER = 100;
 

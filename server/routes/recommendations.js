@@ -6,7 +6,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 // @route   GET /api/recommendations
 // @desc    Get all recommendations with filters
 // @access  Private (Officer, Analyst, Manager, Admin)
-router.get('/', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     const { 
       page = 1, 
@@ -139,7 +139,7 @@ router.get('/', authenticateToken, requireRole(['retentionOfficer', 'retentionAn
 // @route   PATCH /api/recommendations/:id/status
 // @desc    Update recommendation status (approve/reject/implement)
 // @access  Private (Manager, Admin)
-router.patch('/:id/status', authenticateToken, requireRole(['retentionManager', 'admin']), async (req, res) => {
+router.patch('/:id/status', authenticateToken, requireRole(['retentionManager']), async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;

@@ -6,7 +6,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 // @route   GET /api/reports/performance
 // @desc    Generate performance report
 // @access  Private (Officer, Manager, Admin)
-router.get('/performance', authenticateToken, requireRole(['retentionOfficer', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/performance', authenticateToken, requireRole(['retentionOfficer', 'retentionManager']), async (req, res) => {
   try {
     const { startDate, endDate, officer_id } = req.query;
 
@@ -90,7 +90,7 @@ router.get('/performance', authenticateToken, requireRole(['retentionOfficer', '
 // @route   GET /api/reports/customer
 // @desc    Generate customer churn report
 // @access  Private (Officer, Analyst, Manager, Admin)
-router.get('/customer', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/customer', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     const { segment, branch, risk_level } = req.query;
 

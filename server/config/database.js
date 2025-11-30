@@ -15,7 +15,9 @@ const pool = process.env.DATABASE_URL
         : false,
       max: maxConnections,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased from 2000ms to 10000ms
+      statement_timeout: 30000, // 30 second statement timeout
+      query_timeout: 30000, // 30 second query timeout
     })
   : new Pool({
       host: process.env.DB_HOST || 'localhost',
@@ -25,7 +27,9 @@ const pool = process.env.DATABASE_URL
       password: process.env.DB_PASSWORD || 'password',
       max: maxConnections,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased from 2000ms to 10000ms
+      statement_timeout: 30000, // 30 second statement timeout
+      query_timeout: 30000, // 30 second query timeout
     });
 
 // Test the connection (only log once in development)

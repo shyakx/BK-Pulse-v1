@@ -13,10 +13,20 @@ const authenticateToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Verify user still exists in database
-    const result = await pool.query(
-      'SELECT id, email, name, role, is_active FROM users WHERE id = $1',
-      [decoded.userId]
-    );
+    let result;
+    try {
+      result = await pool.query(
+        'SELECT id, email, name, role, is_active FROM users WHERE id = $1',
+        [decoded.userId]
+      );
+    } catch (dbError) {
+      // Database error - don't treat as authentication failure
+      console.error('Database error during authentication:', dbError);
+      return res.status(500).json({ 
+        message: 'Database error during authentication',
+        error: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+      });
+    }
 
     if (result.rows.length === 0) {
       return res.status(401).json({ message: 'User not found' });
@@ -30,7 +40,16 @@ const authenticateToken = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
+    // JWT verification error
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(403).json({ message: 'Invalid or expired token' });
+    }
+    // Other errors (shouldn't happen, but handle gracefully)
+    console.error('Unexpected authentication error:', error);
+    return res.status(500).json({ 
+      message: 'Authentication error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

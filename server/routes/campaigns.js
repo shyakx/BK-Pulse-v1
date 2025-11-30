@@ -292,7 +292,7 @@ async function ensureCampaignsTables() {
 // @route   GET /api/campaigns
 // @desc    Get all campaigns with filters
 // @access  Private (Officer, Analyst, Manager, Admin)
-router.get('/', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     // Ensure campaigns tables exist
     await ensureCampaignsTables();
@@ -453,7 +453,7 @@ router.get('/', authenticateToken, requireRole(['retentionOfficer', 'retentionAn
 // @route   GET /api/campaigns/:id/customers
 // @desc    Get customers targeted by a campaign
 // @access  Private (Analyst, Manager, Admin)
-router.get('/:id/customers', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/:id/customers', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     // Ensure campaigns tables exist
     await ensureCampaignsTables();
@@ -543,7 +543,7 @@ router.get('/:id/customers', authenticateToken, requireRole(['retentionOfficer',
 // @route   GET /api/campaigns/:id/performance
 // @desc    Get campaign performance metrics
 // @access  Private (Analyst, Manager, Admin)
-router.get('/:id/performance', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/:id/performance', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     // Ensure campaigns tables exist
     await ensureCampaignsTables();
@@ -658,7 +658,7 @@ router.get('/:id/performance', authenticateToken, requireRole(['retentionOfficer
 // @route   GET /api/campaigns/:id
 // @desc    Get campaign by ID
 // @access  Private (Analyst, Manager, Admin)
-router.get('/:id', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/:id', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     // Ensure campaigns tables exist
     await ensureCampaignsTables();
@@ -727,7 +727,7 @@ router.get('/:id', authenticateToken, requireRole(['retentionOfficer', 'retentio
 // @route   POST /api/campaigns
 // @desc    Create a new campaign
 // @access  Private (Analyst, Manager, Admin)
-router.post('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.post('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     const {
       name,
@@ -821,7 +821,7 @@ router.post('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionM
 // @route   PATCH /api/campaigns/:id
 // @desc    Update a campaign
 // @access  Private (Analyst, Manager, Admin)
-router.patch('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.patch('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     // Ensure campaigns tables exist
     await ensureCampaignsTables();
@@ -1038,7 +1038,7 @@ router.patch('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retent
 // @route   DELETE /api/campaigns/:id
 // @desc    Delete a campaign
 // @access  Private (Analyst, Manager, Admin)
-router.delete('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.delete('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     // Ensure campaigns tables exist
     await ensureCampaignsTables();

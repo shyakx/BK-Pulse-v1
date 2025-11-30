@@ -175,68 +175,6 @@ const pages = {
     }
   ],
 
-  admin: [
-    // ===== SYSTEM OVERVIEW =====
-    {
-      name: "Dashboard",
-      route: "/admin/dashboard",
-      description: "Technical system overview with health monitoring, usage statistics, and system status.",
-      components: ["SystemHealth", "UsageStatistics", "ModelStatus"],
-      icon: "dashboard",
-      section: "core"
-    },
-    // ===== USER & ACCESS MANAGEMENT =====
-    {
-      name: "Users",
-      route: "/admin/users",
-      description: "Manage system users, role assignments, and access permissions.",
-      components: ["UserListTable", "AddUserForm", "UserDetailModal", "RolePermissionsMatrix"],
-      icon: "people",
-      section: "management"
-    },
-    // ===== DATA & MODEL MANAGEMENT =====
-    {
-      name: "Data",
-      route: "/admin/data",
-      description: "Manage customer data, data quality, ETL processes, and data pipelines.",
-      components: ["DataQualityDashboard", "DataRefreshStatus", "SourceErrorTracking", "AdminControls", "BulkOperations"],
-      icon: "storage",
-      section: "management"
-    },
-    {
-      name: "Models",
-      route: "/admin/models",
-      description: "ML model lifecycle management: training, deployment, monitoring, and versioning.",
-      components: ["CurrentModelCard", "ModelTrainingPanel", "ModelHistory", "FeatureEngineering", "ModelTesting"],
-      icon: "auto_awesome",
-      section: "management"
-    },
-    // ===== SYSTEM CONFIGURATION =====
-    {
-      name: "Settings",
-      route: "/admin/settings",
-      description: "Configure system settings, prediction thresholds, notifications, and integrations.",
-      components: ["GeneralSettings", "PredictionSettings", "NotificationSettings", "IntegrationSettings"],
-      icon: "settings",
-      section: "configuration"
-    },
-    {
-      name: "Audit Logs",
-      route: "/admin/audit",
-      description: "View system activity logs, user actions, and compliance audit trail.",
-      components: ["AuditLogTable", "AuditFilters", "ExportAuditLog", "AuditDetails"],
-      icon: "security",
-      section: "configuration"
-    },
-    {
-      name: "Backup & Maintenance",
-      route: "/admin/maintenance",
-      description: "Database backups, system optimization, and maintenance operations.",
-      components: ["BackupStatus", "BackupSchedule", "DatabaseOptimization", "SystemHealth"],
-      icon: "backup",
-      section: "configuration"
-    }
-  ]
 };
 
 export default pages;

@@ -36,7 +36,7 @@ router.get('/', authenticateToken, async (req, res) => {
     
     // Use CTE to get the most recent customer record for each customer_id
     // This ensures we get the latest churn_score and risk_level, matching the detail page logic
-    let query = `
+    let baseQuery = `
       WITH latest_customers AS (
         SELECT DISTINCT ON (customer_id) *
         FROM customers
@@ -46,54 +46,119 @@ router.get('/', authenticateToken, async (req, res) => {
     `;
     const params = [];
     let paramCount = 0;
+    let orderByClause = '';
+    let exactMatchParam = null;
 
-    if (search) {
-      paramCount++;
-      query += ` AND (customer_id ILIKE $${paramCount} OR name ILIKE $${paramCount} OR email ILIKE $${paramCount})`;
-      params.push(`%${search}%`);
+    // Optimized search logic: try exact match first (fast), then partial if needed
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      const isNumeric = /^\d+$/.test(searchTerm);
+      
+      if (isNumeric) {
+        // For numeric searches: exact customer_id match (uses index, very fast)
+        paramCount++;
+        exactMatchParam = paramCount;
+        params.push(searchTerm);
+        
+        // Try exact match first - this will be fast with the UNIQUE index on customer_id
+        baseQuery += ` AND customer_id = $${exactMatchParam}`;
+        
+        // Order by customer_id for exact matches
+        orderByClause = ` ORDER BY customer_id ASC`;
+      } else {
+        // For text searches: use prefix matching (can use index) instead of full wildcard
+        // Prefix matching (searchTerm%) can use indexes, but %searchTerm% cannot
+        paramCount++;
+        const prefixParam = paramCount;
+        params.push(`${searchTerm}%`); // Prefix match - can use index
+        
+        paramCount++;
+        const containsParam = paramCount;
+        params.push(`%${searchTerm}%`); // Contains match - fallback
+        
+        // Try prefix match first (faster), then contains match
+        baseQuery += ` AND (
+          name ILIKE $${prefixParam} 
+          OR email ILIKE $${prefixParam}
+          OR name ILIKE $${containsParam}
+          OR email ILIKE $${containsParam}
+        )`;
+        orderByClause = ` ORDER BY 
+          CASE 
+            WHEN name ILIKE $${prefixParam} THEN 1
+            WHEN email ILIKE $${prefixParam} THEN 2
+            ELSE 3
+          END,
+          name ASC`;
+      }
+    } else {
+      // Default ordering when no search
+      orderByClause = ` ORDER BY churn_score DESC NULLS LAST, id ASC`;
     }
 
+    // Apply filters
     if (segment) {
       paramCount++;
-      query += ` AND segment = $${paramCount}`;
+      baseQuery += ` AND segment = $${paramCount}`;
       params.push(segment);
     }
 
     if (risk_level) {
       paramCount++;
-      query += ` AND risk_level = $${paramCount}`;
+      baseQuery += ` AND risk_level = $${paramCount}`;
       params.push(risk_level);
     }
 
     if (branch) {
       paramCount++;
-      query += ` AND branch = $${paramCount}`;
+      baseQuery += ` AND branch = $${paramCount}`;
       params.push(branch);
     }
 
     if (min_churn_score !== null) {
       paramCount++;
-      query += ` AND churn_score >= $${paramCount}`;
+      baseQuery += ` AND churn_score >= $${paramCount}`;
       params.push(parseFloat(min_churn_score));
     }
 
     if (max_churn_score !== null) {
       paramCount++;
-      query += ` AND churn_score <= $${paramCount}`;
+      baseQuery += ` AND churn_score <= $${paramCount}`;
       params.push(parseFloat(max_churn_score));
     }
 
-    // Count total - need to adjust for CTE
-    const countQuery = query.replace('SELECT * FROM latest_customers', 'SELECT COUNT(*) FROM latest_customers');
-    const countResult = await pool.query(countQuery, params);
-    const total = parseInt(countResult.rows[0].count);
+    // Build count query (remove ORDER BY and SELECT clause)
+    const countQuery = baseQuery.replace('SELECT * FROM latest_customers', 'SELECT COUNT(*) as count FROM latest_customers');
+    let countResult;
+    try {
+      countResult = await pool.query(countQuery, params);
+    } catch (countError) {
+      console.error('Error counting customers:', countError);
+      console.error('Count Query:', countQuery);
+      console.error('Count Params:', params);
+      // Return empty result instead of failing
+      countResult = { rows: [{ count: '0' }] };
+    }
+    const total = parseInt(countResult.rows[0]?.count || 0);
 
-    // Get paginated results
+    // Build main query with ordering and pagination
     paramCount++;
-    query += ` ORDER BY churn_score DESC NULLS LAST, id ASC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    const limitParam = paramCount;
+    paramCount++;
+    const offsetParam = paramCount;
     params.push(parseInt(limit), offset);
+    
+    const query = `${baseQuery}${orderByClause} LIMIT $${limitParam} OFFSET $${offsetParam}`;
 
-    const result = await pool.query(query, params);
+    let result;
+    try {
+      result = await pool.query(query, params);
+    } catch (queryError) {
+      console.error('Error executing customer query:', queryError);
+      console.error('Query:', query);
+      console.error('Params:', params);
+      throw queryError; // Re-throw to be caught by outer catch
+    }
 
     // Add metadata to indicate prediction freshness
     // Predictions updated within last 7 days are likely from ML model
@@ -130,10 +195,15 @@ router.get('/', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching customers:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch customers',
-      error: error.message
+      error: error.message,
+      ...(process.env.NODE_ENV === 'development' && { 
+        stack: error.stack,
+        details: error.details || error.hint
+      })
     });
   }
 });

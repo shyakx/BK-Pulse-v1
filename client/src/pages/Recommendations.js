@@ -10,7 +10,29 @@ const Recommendations = () => {
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Actual search value
+  const [searchInput, setSearchInput] = useState(''); // Input field value
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
+    fetchRecommendations();
+  };
+
+  const handleSearchInputChange = (value) => {
+    setSearchInput(value);
+  };
+
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchTerm('');
+    fetchRecommendations();
+  };
 
   const fetchRecommendations = useCallback(async () => {
     try {
@@ -97,11 +119,11 @@ const Recommendations = () => {
     } finally {
       setLoading(false);
     }
-  }, [filterStatus, searchTerm]);
+  }, [filterStatus, searchTerm]); // Keep searchTerm here so fetchRecommendations updates when searchTerm changes
 
   useEffect(() => {
     fetchRecommendations();
-  }, [fetchRecommendations]);
+  }, [fetchRecommendations, filterStatus]); // Only fetch when filterStatus changes, not searchTerm
 
   const handleStatusUpdate = async (recommendationId, newStatus) => {
     if (!['retentionManager', 'admin'].includes(user?.role)) {
@@ -380,10 +402,28 @@ const Recommendations = () => {
                   type="text"
                   className="form-control"
                   placeholder="Search recommendations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && fetchRecommendations()}
+                  value={searchInput}
+                  onChange={(e) => handleSearchInputChange(e.target.value)}
+                  onKeyPress={handleSearchKeyPress}
                 />
+                {searchInput && (
+                  <button
+                    className="btn btn-outline-secondary"
+                    type="button"
+                    onClick={handleClearSearch}
+                    title="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleSearch}
+                  disabled={loading}
+                >
+                  {loading ? <span className="spinner-border spinner-border-sm" /> : 'Search'}
+                </button>
               </div>
             </div>
             <div className="col-md-6">

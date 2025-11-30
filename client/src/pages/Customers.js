@@ -11,7 +11,8 @@ const Customers = () => {
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Actual search value used in API
+  const [searchInput, setSearchInput] = useState(''); // Input field value (doesn't trigger search)
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
@@ -71,10 +72,10 @@ const Customers = () => {
     }
   }, [itemsPerPage]);
 
-  // Initial load
+  // Initial load - only when filters change, not on searchTerm change
   useEffect(() => {
     fetchCustomers(1, searchTerm, filters);
-  }, [fetchCustomers, searchTerm, filters]);
+  }, [fetchCustomers, filters]); // Removed searchTerm from dependencies
 
   // Refresh customers
   const handleRefresh = () => {
@@ -127,10 +128,30 @@ const Customers = () => {
     }
   };
 
-  const handleSearch = (term) => {
-    setSearchTerm(term);
+  const handleSearch = () => {
+    // Only search when button is clicked or Enter is pressed
+    setSearchTerm(searchInput);
     setCurrentPage(1);
-    fetchCustomers(1, term, filters);
+    fetchCustomers(1, searchInput, filters);
+  };
+
+  const handleSearchInputChange = (value) => {
+    // Update input field without triggering search
+    setSearchInput(value);
+  };
+
+  const handleSearchKeyPress = (e) => {
+    // Trigger search on Enter key
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchTerm('');
+    setCurrentPage(1);
+    fetchCustomers(1, '', filters);
   };
 
   const handleFilter = (filterParams) => {
@@ -150,6 +171,7 @@ const Customers = () => {
     const clearedFilters = {};
     setFilters(clearedFilters);
     setSearchTerm('');
+    setSearchInput('');
     setCurrentPage(1);
     fetchCustomers(1, '', clearedFilters);
   };
@@ -375,17 +397,40 @@ const Customers = () => {
       {/* Search and Stats */}
       <div className="d-flex align-items-center justify-content-between mb-3">
         <div className="d-flex align-items-center">
-          <div className="input-group" style={{ width: '300px' }}>
+          <div className="input-group" style={{ width: '400px' }}>
             <span className="input-group-text">
               <MdSearch />
             </span>
             <input
               type="text"
               className="form-control"
-              placeholder="Search customers..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search customers by ID, name, or email..."
+              value={searchInput}
+              onChange={(e) => handleSearchInputChange(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
             />
+            {searchInput && (
+              <button
+                className="btn btn-outline-secondary"
+                type="button"
+                onClick={handleClearSearch}
+                title="Clear search"
+              >
+                ×
+              </button>
+            )}
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={handleSearch}
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="spinner-border spinner-border-sm" />
+              ) : (
+                'Search'
+              )}
+            </button>
           </div>
         </div>
         <div className="text-muted small">

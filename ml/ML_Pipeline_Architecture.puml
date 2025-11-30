@@ -36,7 +36,7 @@ API --> DB : Store/Retrieve\nCustomer Data & Scores
 
 ML --> DB : Update Churn Scores\n(After prediction)
 
-SCHED --> PYTHON : Trigger Retraining\n(clean_and_retrain.py)
+SCHED --> PYTHON : Trigger Retraining\n(Colab Notebook or train_model.py)
 
 PYTHON --> MODEL : Save Updated Model\n(After training)
 

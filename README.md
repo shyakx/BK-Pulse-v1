@@ -25,7 +25,6 @@ https://youtu.be/8eXAD5smTxo
 1. **Retention Officer** - Direct customer interaction and action execution
 2. **Retention Analyst** - Data analysis and model insights
 3. **Retention Manager** - Team oversight and strategic decisions
-4. **Admin** - System administration and configuration
 
 ## 🏗️ Project Structure
 
@@ -260,7 +259,6 @@ The application is deployed and accessible online. You can test all features usi
 | Retention Officer | officer1@bk.rw | password |
 | Retention Analyst | analyst1@bk.rw | password |
 | Retention Manager | manager1@bk.rw | password |
-| Admin | admin@bk.rw | password |
 
 ## 📊 Features by Role
 
@@ -285,12 +283,6 @@ The application is deployed and accessible online. You can test all features usi
 - Strategic analytics and reporting
 - Model performance monitoring
 
-### Admin
-- System health monitoring
-- User management
-- Data and ETL pipeline management
-- Model deployment and monitoring
-- Audit logs and compliance reporting
 
 ## 🎨 Design System
 
@@ -392,22 +384,8 @@ python ml/train_model.py
    - Evaluates and compares model performance
    - Saves best model to `data/models/`
 
-See `ml/README.md` for detailed documentation on the ML pipeline.
+For ML model training, use the Google Colab notebook or run the Python scripts directly.
 
-## 📚 Documentation
-
-Need quick pointers while exploring the codebase? Start with `USER_GUIDE.md`
-for product workflows, then dive into the docs listed below for setup details.
-
-### User Documentation
-- **[USER_GUIDE.md](USER_GUIDE.md)** - Complete user guide and feature documentation
-
-### Technical Documentation
-- **[docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)** - PostgreSQL database setup and configuration
-- **[docs/PGADMIN_SETUP_GUIDE.md](docs/PGADMIN_SETUP_GUIDE.md)** - pgAdmin setup and usage
-- **[docs/POSTGRESQL_TROUBLESHOOTING.md](docs/POSTGRESQL_TROUBLESHOOTING.md)** - PostgreSQL troubleshooting guide
-- **[ml/README.md](ml/README.md)** - Machine Learning pipeline documentation
-- **[ml/PREDICTION_API.md](ml/PREDICTION_API.md)** - ML prediction API reference
 
 ### Utility Scripts
 Available in `server/scripts/`:

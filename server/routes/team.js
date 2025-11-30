@@ -6,7 +6,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 // @route   GET /api/team
 // @desc    Get all team members with their activities and customer assignments
 // @access  Private (Manager, Admin)
-router.get('/', authenticateToken, requireRole(['retentionManager', 'admin']), async (req, res) => {
+router.get('/', authenticateToken, requireRole(['retentionManager']), async (req, res) => {
   try {
     // Get all active team members
     const usersResult = await pool.query(`
@@ -95,7 +95,7 @@ router.get('/', authenticateToken, requireRole(['retentionManager', 'admin']), a
 // @route   GET /api/team/:id/activities
 // @desc    Get activities for a specific team member
 // @access  Private (Manager, Admin)
-router.get('/:id/activities', authenticateToken, requireRole(['retentionManager', 'admin']), async (req, res) => {
+router.get('/:id/activities', authenticateToken, requireRole(['retentionManager']), async (req, res) => {
   try {
     const userId = req.params.id;
 
@@ -163,7 +163,7 @@ router.get('/:id/activities', authenticateToken, requireRole(['retentionManager'
 // @route   GET /api/team/:id/customers
 // @desc    Get customers assigned to a team member
 // @access  Private (Manager, Admin)
-router.get('/:id/customers', authenticateToken, requireRole(['retentionManager', 'admin']), async (req, res) => {
+router.get('/:id/customers', authenticateToken, requireRole(['retentionManager']), async (req, res) => {
   try {
     const userId = req.params.id;
     const { page = 1, limit = 50 } = req.query;

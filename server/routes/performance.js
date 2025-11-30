@@ -168,7 +168,7 @@ router.get('/leaderboard', authenticateToken, async (req, res) => {
     const userRole = req.user.role;
 
     // Only officers, managers, and admins can see leaderboard
-    if (!['retentionOfficer', 'retentionManager', 'admin'].includes(userRole)) {
+    if (!['retentionOfficer', 'retentionManager'].includes(userRole)) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to view the leaderboard'

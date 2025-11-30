@@ -16,7 +16,7 @@ const {
  * @param   {Boolean} req.body.include_shap - Whether to include SHAP explainability values
  * @returns {Object} Prediction results with churn_score, risk_level, and optional SHAP values
  */
-router.post('/single', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.post('/single', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     const customerData = req.body.customer_data || req.body;
     const includeShap = req.body.include_shap === true;
@@ -105,7 +105,7 @@ router.post('/customer/:id', authenticateToken, async (req, res) => {
  * @param   {Number} req.body.limit - Maximum number of customers to process (default: 100)
  * @returns {Object} Batch prediction results with summary statistics
  */
-router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   // Increase timeout for batch operations (5 minutes)
   req.setTimeout(300000);
   
@@ -218,7 +218,7 @@ router.post('/batch', authenticateToken, requireRole(['retentionOfficer', 'reten
  * @access  Private (Analyst, Manager, Admin)
  * @returns {Object} Model metadata including accuracy, precision, recall, F1-score, ROC-AUC, and feature importance
  */
-router.get('/model-info', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/model-info', authenticateToken, requireRole(['retentionOfficer', 'retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     const fs = require('fs');
     const path = require('path');

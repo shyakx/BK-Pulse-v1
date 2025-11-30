@@ -97,7 +97,7 @@ async function calculateCustomerCount(criteria) {
 // @route   GET /api/segmentation
 // @desc    Get all customer segments
 // @access  Private (Analyst, Manager, Admin)
-router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     // Check if tables exist first
     try {
@@ -176,7 +176,7 @@ router.get('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionMa
 // @route   GET /api/segmentation/:id
 // @desc    Get a single segment with customers
 // @access  Private (Analyst, Manager, Admin)
-router.get('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.get('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     const { id } = req.params;
     const { include_customers = 'false', page = 1, limit = 50 } = req.query;
@@ -290,7 +290,7 @@ router.get('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentio
 // @route   POST /api/segmentation
 // @desc    Create a new customer segment
 // @access  Private (Analyst, Manager, Admin)
-router.post('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.post('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     const { name, description, criteria } = req.body;
 
@@ -367,7 +367,7 @@ router.post('/', authenticateToken, requireRole(['retentionAnalyst', 'retentionM
 // @route   DELETE /api/segmentation/:id
 // @desc    Delete a customer segment
 // @access  Private (Analyst, Manager, Admin)
-router.delete('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager', 'admin']), async (req, res) => {
+router.delete('/:id', authenticateToken, requireRole(['retentionAnalyst', 'retentionManager']), async (req, res) => {
   try {
     const { id } = req.params;
 

@@ -9,7 +9,8 @@ const Analysis = () => {
   const { user } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Actual search value
+  const [searchInput, setSearchInput] = useState(''); // Input field value
   const [addingTask, setAddingTask] = useState(null);
   const [filters, setFilters] = useState({
     segment: '',
@@ -308,15 +309,29 @@ const Analysis = () => {
       max_balance: ''
     });
     setSearchTerm('');
+    setSearchInput('');
     setTimeout(() => fetchCustomers(), 100);
   };
 
-  const handleSearch = (value) => {
-    setSearchTerm(value);
-    // Debounce search
-    setTimeout(() => {
-      fetchCustomers();
-    }, 500);
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
+    fetchCustomers();
+  };
+
+  const handleSearchInputChange = (value) => {
+    setSearchInput(value);
+  };
+
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchTerm('');
+    fetchCustomers();
   };
 
   const handleExport = () => {
@@ -389,7 +404,7 @@ const Analysis = () => {
             <MdFilterList className="me-2" />
             {user?.role === 'retentionOfficer' ? 'My Assigned Customers' : 'Filters'}
           </h5>
-          <div className="input-group" style={{ width: '300px' }}>
+          <div className="input-group" style={{ width: '400px' }}>
             <span className="input-group-text">
               <MdSearch />
             </span>
@@ -397,9 +412,28 @@ const Analysis = () => {
               type="text"
               className="form-control"
               placeholder="Search customers..."
-              value={searchTerm}
-              onChange={(e) => handleSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => handleSearchInputChange(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
             />
+            {searchInput && (
+              <button
+                className="btn btn-outline-secondary"
+                type="button"
+                onClick={handleClearSearch}
+                title="Clear search"
+              >
+                ×
+              </button>
+            )}
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={handleSearch}
+              disabled={loading}
+            >
+              {loading ? <span className="spinner-border spinner-border-sm" /> : 'Search'}
+            </button>
           </div>
         </div>
         {user?.role !== 'retentionOfficer' && (

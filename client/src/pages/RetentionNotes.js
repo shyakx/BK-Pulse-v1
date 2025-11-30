@@ -7,20 +7,15 @@ const RetentionNotes = () => {
   const { user } = useAuth();
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Actual search value
+  const [searchInput, setSearchInput] = useState(''); // Input field value
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
-    // Debounce search
-    if (searchTerm !== undefined) {
-      const timer = setTimeout(() => {
-        fetchNotes();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
+    fetchNotes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [filterStatus]); // Only fetch when filterStatus changes, not searchTerm
   const [newNote, setNewNote] = useState({
     customer_id: '',
     category: 'Call',
@@ -33,6 +28,27 @@ const RetentionNotes = () => {
     fetchNotes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterStatus]);
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
+    fetchNotes();
+  };
+
+  const handleSearchInputChange = (value) => {
+    setSearchInput(value);
+  };
+
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchTerm('');
+    fetchNotes();
+  };
 
   const fetchNotes = async () => {
     try {
@@ -226,9 +242,28 @@ const RetentionNotes = () => {
                   type="text"
                   className="form-control"
                   placeholder="Search notes..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={searchInput}
+                  onChange={(e) => handleSearchInputChange(e.target.value)}
+                  onKeyPress={handleSearchKeyPress}
                 />
+                {searchInput && (
+                  <button
+                    className="btn btn-outline-secondary"
+                    type="button"
+                    onClick={handleClearSearch}
+                    title="Clear search"
+                  >
+                    ×
+                  </button>
+                )}
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleSearch}
+                  disabled={loading}
+                >
+                  {loading ? <span className="spinner-border spinner-border-sm" /> : 'Search'}
+                </button>
               </div>
             </div>
             <div className="col-md-6">

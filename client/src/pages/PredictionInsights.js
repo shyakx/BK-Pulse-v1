@@ -12,7 +12,8 @@ const PredictionInsights = () => {
   const [selectedRiskLevel, setSelectedRiskLevel] = useState(null);
   const [sortBy, setSortBy] = useState('churn_score');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(''); // Actual search value
+  const [searchInput, setSearchInput] = useState(''); // Input field value
   const [showCustomSegmentModal, setShowCustomSegmentModal] = useState(false);
   const [customSegmentCriteria, setCustomSegmentCriteria] = useState({
     segment: '',
@@ -432,6 +433,25 @@ const PredictionInsights = () => {
       setSortBy(field);
       setSortOrder('desc');
     }
+  };
+
+  const handleSearch = () => {
+    setSearchTerm(searchInput);
+  };
+
+  const handleSearchInputChange = (value) => {
+    setSearchInput(value);
+  };
+
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchTerm('');
   };
 
   const filteredPredictions = predictions.filter(p => {
@@ -1042,9 +1062,27 @@ const PredictionInsights = () => {
                         type="text"
                         className="form-control"
                         placeholder="Search by customer ID, name, or email..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        value={searchInput}
+                        onChange={(e) => handleSearchInputChange(e.target.value)}
+                        onKeyPress={handleSearchKeyPress}
                       />
+                      {searchInput && (
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={handleClearSearch}
+                          title="Clear search"
+                        >
+                          ×
+                        </button>
+                      )}
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        onClick={handleSearch}
+                      >
+                        Search
+                      </button>
                     </div>
                   </div>
                   <div className="col-md-6">

@@ -135,8 +135,6 @@ const Sidebar = ({ isCollapsed, toggleCollapse }) => {
         return pages.retentionAnalyst;
       case 'retentionManager':
         return pages.retentionManager;
-      case 'admin':
-        return pages.admin;
       default:
         return [];
     }
@@ -416,7 +414,7 @@ const Sidebar = ({ isCollapsed, toggleCollapse }) => {
                     )}
                   </>
                 );
-              } else if (user?.role === 'retentionManager' || user?.role === 'admin') {
+              } else if (user?.role === 'retentionManager') {
                 // Group pages by section for manager and admin roles
                 const corePages = userPages.filter(p => p.section === 'core' && !p.route.includes(':id'));
                 const teamPages = userPages.filter(p => p.section === 'team' && !p.route.includes(':id'));

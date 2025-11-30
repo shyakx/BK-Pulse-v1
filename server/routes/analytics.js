@@ -6,7 +6,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 // @route   GET /api/analytics/strategic
 // @desc    Get strategic analytics (CLV, cohort analysis, scenarios)
 // @access  Private (Manager, Admin)
-router.get('/strategic', authenticateToken, requireRole(['retentionManager', 'admin']), async (req, res) => {
+router.get('/strategic', authenticateToken, requireRole(['retentionManager']), async (req, res) => {
   try {
     const { period = 'quarter' } = req.query;
 
@@ -130,7 +130,7 @@ router.get('/strategic', authenticateToken, requireRole(['retentionManager', 'ad
 // @route   GET /api/analytics/budget-roi
 // @desc    Get budget and ROI analytics
 // @access  Private (Manager, Admin)
-router.get('/budget-roi', authenticateToken, requireRole(['retentionManager', 'admin']), async (req, res) => {
+router.get('/budget-roi', authenticateToken, requireRole(['retentionManager']), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     let dateFilter = '';

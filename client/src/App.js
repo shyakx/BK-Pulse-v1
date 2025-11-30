@@ -16,12 +16,6 @@ const Recommendations = lazy(() => import('./pages/Recommendations'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Team = lazy(() => import('./pages/Team'));
 const Approvals = lazy(() => import('./pages/Approvals'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const AdminUsers = lazy(() => import('./pages/AdminUsers'));
-const AdminData = lazy(() => import('./pages/AdminData'));
-const AdminModels = lazy(() => import('./pages/AdminModels'));
-const AdminAudit = lazy(() => import('./pages/AdminAudit'));
-const AdminSettings = lazy(() => import('./pages/AdminSettings'));
 const RetentionNotes = lazy(() => import('./pages/RetentionNotes'));
 const MyTasks = lazy(() => import('./pages/MyTasks'));
 const Performance = lazy(() => import('./pages/Performance'));
@@ -31,7 +25,6 @@ const CampaignManagement = lazy(() => import('./pages/CampaignManagement'));
 const CampaignPerformance = lazy(() => import('./pages/CampaignPerformance'));
 const StrategicAnalytics = lazy(() => import('./pages/StrategicAnalytics'));
 const BudgetROI = lazy(() => import('./pages/BudgetROI'));
-const BackupMaintenance = lazy(() => import('./pages/BackupMaintenance'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Settings = lazy(() => import('./pages/Settings'));
 
@@ -192,64 +185,6 @@ function App() {
               <Route path="explainability" element={<Navigate to="/model-insights" replace />} />
               <Route path="data-management" element={<Navigate to="/dashboard" replace />} />
               <Route path="my-tasks" element={<Navigate to="/tasks" replace />} />
-              
-              {/* Admin routes */}
-              <Route path="admin/dashboard" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <AdminDashboard />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
-              <Route path="admin/users" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <AdminUsers />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
-              <Route path="admin/data" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <AdminData />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
-              <Route path="admin/models" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <AdminModels />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
-              <Route path="admin/settings" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <AdminSettings />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
-              
-              {/* Admin Audit page */}
-              <Route path="admin/audit" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <AdminAudit />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
-              
-              {/* Admin Backup & Maintenance page */}
-              <Route path="admin/maintenance" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <BackupMaintenance />
-                  </Suspense>
-                </ProtectedRoute>
-              } />
-              
-              {/* Admin routes */}
-              <Route path="admin/reports" element={<Navigate to="/admin/dashboard" replace />} />
               
               {/* Catch all route */}
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
